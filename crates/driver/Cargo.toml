@@ -1,0 +1,9 @@
+[package]
+name = "driver"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
