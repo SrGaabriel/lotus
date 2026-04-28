@@ -13,6 +13,9 @@ pub enum SyntaxKind {
     Identifier,
     OpIdentifier,
 
+    NumberLit,
+    StringLit,
+
     #[static_text("(")]
     LParen,
     #[static_text(")")]
@@ -35,8 +38,13 @@ pub enum SyntaxKind {
 
     Unknown,
 
+    DefKw,
+
     // === Nodes ===
     Root,
+    SourceFile,
+    DefDecl,
+    Name,
     Expr,
     Error,
 }

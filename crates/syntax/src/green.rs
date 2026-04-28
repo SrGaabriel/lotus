@@ -1,7 +1,9 @@
 use cstree::Syntax;
 use cstree::build::{Checkpoint, GreenNodeBuilder};
 use cstree::green::GreenNode;
+use cstree::interning::TokenInterner;
 
+use crate::{ResolvedNode, SyntaxNode};
 use crate::{
     lexer::{Lexer, Token, TokenKind},
     red::SyntaxKind,
@@ -16,6 +18,13 @@ pub struct ParseError {
 pub struct Parsed {
     pub green: GreenNode,
     pub errors: Vec<ParseError>,
+    pub interner: TokenInterner,
+}
+
+impl Parsed {
+    pub fn into_node(self) -> ResolvedNode {
+        SyntaxNode::new_root_with_resolver(self.green, self.interner)
+    }
 }
 
 pub struct Parser<'input> {
@@ -40,10 +49,12 @@ impl<'input> Parser<'input> {
         self.eat_trivia();
         self.builder.finish_node();
 
-        let (green, _interner) = self.builder.finish();
+        let (green, cache) = self.builder.finish();
+        let interner = cache.unwrap().into_interner().unwrap();
         Parsed {
             green,
             errors: self.errors,
+            interner,
         }
     }
 
