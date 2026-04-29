@@ -4,7 +4,7 @@ use cstree::green::GreenNode;
 use cstree::interning::TokenInterner;
 use cstree::text::TextRange;
 use diagnostics::Diagnostic;
-use structure::FileId;
+use db::SourceFile;
 use text_size::TextSize;
 
 use crate::parser::parse_source_file;
@@ -15,7 +15,7 @@ use crate::{
 };
 
 pub struct Parsed {
-    pub file: FileId,
+    pub file: SourceFile,
     pub green: GreenNode,
     pub diagnostics: Vec<Diagnostic>,
     pub interner: TokenInterner,
@@ -28,7 +28,7 @@ impl Parsed {
 }
 
 pub struct Parser<'input> {
-    file: FileId,
+    file: SourceFile,
     tokens: Vec<Token<'input>>,
     cursor: usize,
     builder: GreenNodeBuilder<'static, 'static, SyntaxKind>,
@@ -36,7 +36,7 @@ pub struct Parser<'input> {
 }
 
 impl<'input> Parser<'input> {
-    pub fn new(file: FileId, input: &'input str) -> Self {
+    pub fn new(file: SourceFile, input: &'input str) -> Self {
         Self {
             file,
             tokens: Lexer::new(input).collect(),

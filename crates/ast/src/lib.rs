@@ -3,18 +3,18 @@ pub mod traits;
 
 use std::marker::PhantomData;
 
+use db::{SourceDatabase, SourceFile as DbFile};
 use diagnostics::Diagnostic;
 pub use generated::*;
-use structure::FileId;
+use salsa::Accumulator;
 use syntax::ResolvedNode;
 
 use crate::traits::AstNode;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Parse<T> {
     syntax: ResolvedNode,
-    diagnostics: Vec<Diagnostic>,
-    _ty: PhantomData<T>,
+    _ty: PhantomData<fn() -> T>,
 }
 
 impl<T: AstNode> Parse<T> {
@@ -25,26 +25,29 @@ impl<T: AstNode> Parse<T> {
     pub fn syntax_node(&self) -> &ResolvedNode {
         &self.syntax
     }
-
-    pub fn diagnostics(&self) -> &[Diagnostic] {
-        &self.diagnostics
-    }
-
-    pub fn ok(self) -> Result<T, Vec<Diagnostic>> {
-        if self.diagnostics().is_empty() {
-            Ok(self.tree())
-        } else {
-            Err(self.diagnostics)
-        }
-    }
 }
 
-pub fn parse(file: FileId, text: &str) -> Parse<SourceFile> {
+pub fn parse(file: DbFile, text: &str) -> (Parse<SourceFile>, Vec<Diagnostic>) {
     let parsed = syntax::parse(file, text);
     let diagnostics = parsed.diagnostics.clone();
-    Parse {
+    let parse = Parse {
         syntax: parsed.into_node(),
-        diagnostics,
         _ty: PhantomData,
+    };
+    (parse, diagnostics)
+}
+
+#[salsa::db]
+pub trait AstDatabase: SourceDatabase {}
+
+#[salsa::db]
+impl<DB: SourceDatabase> AstDatabase for DB {}
+
+#[salsa::tracked(returns(ref))]
+pub fn parse_file(db: &dyn AstDatabase, file: DbFile) -> Parse<SourceFile> {
+    let (parse, diagnostics) = parse(file, file.text(db));
+    for diag in diagnostics {
+        diag.accumulate(db);
     }
+    parse
 }

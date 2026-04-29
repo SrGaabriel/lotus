@@ -1,4 +1,4 @@
-use structure::FileId;
+use db::SourceFile;
 use text_size::TextRange;
 
 use crate::{Diagnostic, Label, Severity};
@@ -21,7 +21,7 @@ impl DiagnosticBuilder {
 
     pub fn with_secondary(
         mut self,
-        file: FileId,
+        file: SourceFile,
         range: TextRange,
         message: Option<String>,
     ) -> Self {
@@ -57,41 +57,26 @@ impl DiagnosticBuilder {
 }
 
 impl Diagnostic {
-    pub fn warning(message: &str, file: FileId, range: TextRange) -> DiagnosticBuilder {
-        DiagnosticBuilder {
-            severity: Severity::Warning,
-            code: None,
-            message: message.to_string(),
-            primary: Label {
-                file,
-                range,
-                message: None,
-            },
-            secondaries: Vec::new(),
-            notes: Vec::new(),
-            helps: Vec::new(),
-        }
+    pub fn warning(message: &str, file: SourceFile, range: TextRange) -> DiagnosticBuilder {
+        Self::builder(Severity::Warning, message, file, range)
     }
 
-    pub fn error(message: &str, file: FileId, range: TextRange) -> DiagnosticBuilder {
-        DiagnosticBuilder {
-            severity: Severity::Error,
-            code: None,
-            message: message.to_string(),
-            primary: Label {
-                file,
-                range,
-                message: None,
-            },
-            secondaries: Vec::new(),
-            notes: Vec::new(),
-            helps: Vec::new(),
-        }
+    pub fn error(message: &str, file: SourceFile, range: TextRange) -> DiagnosticBuilder {
+        Self::builder(Severity::Error, message, file, range)
     }
 
-    pub fn lint(message: &str, file: FileId, range: TextRange) -> DiagnosticBuilder {
+    pub fn lint(message: &str, file: SourceFile, range: TextRange) -> DiagnosticBuilder {
+        Self::builder(Severity::Lint, message, file, range)
+    }
+
+    fn builder(
+        severity: Severity,
+        message: &str,
+        file: SourceFile,
+        range: TextRange,
+    ) -> DiagnosticBuilder {
         DiagnosticBuilder {
-            severity: Severity::Lint,
+            severity,
             code: None,
             message: message.to_string(),
             primary: Label {

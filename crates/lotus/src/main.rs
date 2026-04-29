@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use ast::parse;
 use clap::Parser;
 use diagnostics::{files::FilesCache, render::render};
+use driver::Compiler;
 use structure::Program;
 
 #[derive(Parser, Debug)]
@@ -14,24 +14,29 @@ struct Cli {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let program = Program::from_path(cli.source, None)?;
-    let files = program.into_files();
-    let mut cache = FilesCache::new(&files);
 
-    for (file_id, file) in files.iter() {
-        println!("Processing file: {}", file.path.display());
-        let parse = parse(file_id, &file.text);
+    let mut compiler = Compiler::new();
+    let root = compiler.ingest_program(program);
+    println!("Compilation unit: {}", root.name(compiler.db()));
 
-        let diagnostic_count = parse.diagnostics().len();
-        if diagnostic_count > 0 {
-            println!("Found {diagnostic_count} diagnostics:");
-            for diagnostic in parse.diagnostics() {
+    let files = compiler.files();
+    let mut cache = FilesCache::new(compiler.db());
+
+    for file in files {
+        let path = file.path(compiler.db()).clone();
+        println!("Processing file: {}", path.display());
+        let parse = compiler.parse(file);
+        let diagnostics = compiler.diagnostics(file);
+
+        if diagnostics.is_empty() {
+            println!("No diagnostics found.");
+        } else {
+            println!("Found {} diagnostics:", diagnostics.len());
+            for diagnostic in &diagnostics {
                 render(&mut cache, diagnostic);
             }
-        } else {
-            println!("No diagnostics found.");
         }
-        let node = parse.syntax_node();
-        let text: String = node.text().to_string();
+        let text: String = parse.syntax_node().text().to_string();
         println!("Parsed syntax node text:\n\n{text}");
     }
     Ok(())

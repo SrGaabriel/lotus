@@ -2,7 +2,7 @@ pub mod builder;
 pub mod files;
 pub mod render;
 
-use structure::FileId;
+use db::SourceFile;
 use text_size::TextRange;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -12,14 +12,15 @@ pub enum Severity {
     Lint,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Label {
-    pub file: FileId,
+    pub file: SourceFile,
     pub range: TextRange,
     pub message: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[salsa::accumulator]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Diagnostic {
     pub severity: Severity,
     pub code: Option<&'static str>,

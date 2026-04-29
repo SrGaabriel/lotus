@@ -1,5 +1,5 @@
 use cstree::util::NodeOrToken;
-use structure::FileId;
+use db::SourceFile;
 
 use crate::{
     green::{Parsed, Parser},
@@ -17,6 +17,6 @@ pub type ResolvedNode = cstree::syntax::ResolvedNode<SyntaxKind>;
 pub type ResolvedToken = cstree::syntax::ResolvedToken<SyntaxKind>;
 pub type SyntaxElement = NodeOrToken<SyntaxNode, SyntaxToken>;
 
-pub fn parse(file: FileId, text: &str) -> Parsed {
+pub fn parse(file: SourceFile, text: &str) -> Parsed {
     Parser::new(file, text).parse()
 }

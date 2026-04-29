@@ -10,7 +10,8 @@ authors.workspace = true
 thiserror.workspace = true
 ariadne.workspace = true
 text-size.workspace = true
-structure.workspace = true
+db.workspace = true
+salsa.workspace = true
 
 [lints]
 workspace = true

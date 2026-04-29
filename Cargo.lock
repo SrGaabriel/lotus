@@ -95,7 +95,6 @@ dependencies = [
  "db",
  "diagnostics",
  "salsa",
- "structure",
  "syntax",
  "ungrammar",
 ]
@@ -276,6 +275,7 @@ dependencies = [
 name = "db"
 version = "0.1.0"
 dependencies = [
+ "rustc-hash",
  "salsa",
 ]
 
@@ -284,14 +284,22 @@ name = "diagnostics"
 version = "0.1.0"
 dependencies = [
  "ariadne",
- "structure",
+ "db",
+ "salsa",
  "text-size",
  "thiserror",
 ]
 
 [[package]]
 name = "driver"
-version = "0.0.0"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "db",
+ "diagnostics",
+ "salsa",
+ "structure",
+]
 
 [[package]]
 name = "either"
@@ -436,9 +444,9 @@ name = "lotus"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ast",
  "clap",
  "diagnostics",
+ "driver",
  "structure",
 ]
 
@@ -698,8 +706,8 @@ name = "syntax"
 version = "0.1.0"
 dependencies = [
  "cstree",
+ "db",
  "diagnostics",
- "structure",
  "text-size",
 ]
 

@@ -38,6 +38,7 @@ quote = "1"
 proc-macro2 = "1"
 
 heck = "^0.5"
+rustc-hash = "^2.1"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
