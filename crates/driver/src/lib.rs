@@ -1,14 +1,24 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use ast::{Parse, SourceFile as AstSourceFile, parse_file};
 use db::{RootDatabase, SourceDatabase, SourceFile, SourceRoot};
 use diagnostics::Diagnostic;
 use salsa::{CancellationToken, Database, Durability};
-use structure::{File, Files, Program};
+use structure::{Package, Program};
 
 pub struct Compiler {
     db: RootDatabase,
     root: Option<SourceRoot>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum IngestError {
+    #[error("failed to read {path}: {source}")]
+    Io {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 impl Compiler {
@@ -38,56 +48,28 @@ impl Compiler {
         }
     }
 
-    pub fn ingest_program(&mut self, program: Program) -> SourceRoot {
-        let (name, entry_path, files) = match program {
-            Program::File(file) => {
-                let name = file
-                    .path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .map_or_else(|| "main".to_string(), str::to_string);
-                let entry_path = Some(file.path.clone());
-                let mut bundle = Files::new();
-                bundle.add(file);
-                (name, entry_path, bundle)
+    pub fn ingest_program(&mut self, program: Program) -> Result<SourceRoot, IngestError> {
+        let (name, files, entrypoint) = match program {
+            Program::File(path) => {
+                let name = stem_or_default(&path, "main");
+                let entry = self.read_and_intern(path)?;
+                (name, vec![entry], Some(entry))
             }
-            Program::Project(project) => (project.name, None, project.files),
+            Program::Package(Package { name, files, .. }) => {
+                let mut interned = Vec::with_capacity(files.len());
+                for path in files {
+                    interned.push(self.read_and_intern(path)?);
+                }
+                (name, interned, None)
+            }
         };
 
-        let mut interned = Vec::new();
-        let mut entrypoint = None;
-        for (_, file) in files {
-            let is_entry = entry_path.as_deref() == Some(file.path.as_path());
-            let id = self.add_file_inner(file);
-            if is_entry {
-                entrypoint = Some(id);
-            }
-            interned.push(id);
-        }
-
-        let root = SourceRoot::new(&self.db, name, interned, entrypoint);
+        let root = SourceRoot::new(&self.db, name, files, entrypoint);
         self.root = Some(root);
-        root
+        Ok(root)
     }
 
-    pub fn add_file(&mut self, file: File) -> SourceFile {
-        let id = self.add_file_inner(file);
-        if let Some(root) = self.root {
-            use salsa::Setter;
-            let mut files = root.files(&self.db).clone();
-            if !files.contains(&id) {
-                files.push(id);
-                root.set_files(&mut self.db).to(files);
-            }
-        }
-        id
-    }
-
-    fn add_file_inner(&mut self, file: File) -> SourceFile {
-        self.db.intern_file(file.path, file.text.to_string())
-    }
-
-    pub fn update_file(&mut self, path: PathBuf, text: String) -> SourceFile {
+    pub fn update_file(&mut self, path: PathBuf, text: Arc<str>) -> SourceFile {
         self.db.intern_file(path, text)
     }
 
@@ -113,10 +95,25 @@ impl Compiler {
     pub fn synthetic_write(&mut self, durability: Durability) {
         self.db.synthetic_write(durability);
     }
+
+    fn read_and_intern(&mut self, path: PathBuf) -> Result<SourceFile, IngestError> {
+        let text = std::fs::read_to_string(&path).map_err(|source| IngestError::Io {
+            path: path.clone(),
+            source,
+        })?;
+        let text: Arc<str> = Arc::from(text.into_boxed_str());
+        Ok(self.db.intern_file(path, text))
+    }
 }
 
 impl Default for Compiler {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn stem_or_default(path: &std::path::Path, default: &str) -> String {
+    path.file_stem()
+        .and_then(|s| s.to_str())
+        .map_or_else(|| default.to_string(), str::to_string)
 }

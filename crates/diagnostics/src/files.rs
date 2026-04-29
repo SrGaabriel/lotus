@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::fmt;
+use std::{collections::HashMap, sync::Arc};
 
 use ariadne::{Cache, Source};
 use db::{SourceDatabase, SourceFile};
@@ -8,7 +8,7 @@ use db::{SourceDatabase, SourceFile};
 /// An ariadne [`Cache`] that resolves [`SourceFile`] ids through the db.
 pub struct FilesCache<'db> {
     pub db: &'db dyn SourceDatabase,
-    sources: HashMap<SourceFile, Source<String>>,
+    sources: HashMap<SourceFile, Source<Arc<str>>>,
 }
 
 impl<'db> FilesCache<'db> {
@@ -21,7 +21,7 @@ impl<'db> FilesCache<'db> {
 }
 
 impl Cache<SourceFile> for FilesCache<'_> {
-    type Storage = String;
+    type Storage = Arc<str>;
 
     fn fetch(&mut self, id: &SourceFile) -> Result<&Source<Self::Storage>, impl fmt::Debug> {
         match self.sources.entry(*id) {

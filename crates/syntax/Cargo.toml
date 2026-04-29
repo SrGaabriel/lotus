@@ -11,6 +11,7 @@ cstree.workspace = true
 diagnostics.workspace = true
 text-size.workspace = true
 db.workspace = true
+strum.workspace = true
 
 [lints]
 workspace = true

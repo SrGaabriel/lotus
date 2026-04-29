@@ -1,8 +1,10 @@
 use std::str::Chars;
 
+use strum::FromRepr;
+
 pub const EOF_CHAR: char = '\0';
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr)]
 pub enum TokenKind {
     Whitespace,
     LineComment,
@@ -31,26 +33,7 @@ pub enum TokenKind {
 
 impl TokenKind {
     pub const fn as_index(self) -> u8 {
-        match self {
-            TokenKind::Whitespace => 0,
-            TokenKind::LineComment => 1,
-            TokenKind::BlockComment { .. } => 2,
-            TokenKind::Identifier => 3,
-            TokenKind::OpIdentifier => 4,
-            TokenKind::Number => 5,
-            TokenKind::LParen => 6,
-            TokenKind::RParen => 7,
-            TokenKind::LBrace => 8,
-            TokenKind::RBrace => 9,
-            TokenKind::LBracket => 10,
-            TokenKind::RBracket => 11,
-            TokenKind::Semicolon => 12,
-            TokenKind::Comma => 13,
-            TokenKind::Dot => 14,
-            TokenKind::DefEq => 15,
-            TokenKind::Unknown => 16,
-            TokenKind::Eof => 17,
-        }
+        unsafe { *<*const _>::from(&self).cast::<u8>() }
     }
 }
 

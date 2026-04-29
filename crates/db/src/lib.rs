@@ -8,7 +8,7 @@ pub struct SourceFile {
     #[returns(ref)]
     pub path: PathBuf,
     #[returns(ref)]
-    pub text: String,
+    pub text: Arc<str>,
 }
 
 #[salsa::input(debug)]
@@ -23,7 +23,7 @@ pub struct SourceRoot {
 #[salsa::db]
 pub trait SourceDatabase: salsa::Database {
     fn source_file(&self, path: &Path) -> Option<SourceFile>;
-    fn intern_file(&mut self, path: PathBuf, text: String) -> SourceFile;
+    fn intern_file(&mut self, path: PathBuf, text: Arc<str>) -> SourceFile;
     fn all_files(&self) -> Vec<SourceFile>;
 }
 
@@ -49,7 +49,8 @@ impl SourceDatabase for RootDatabase {
         self.files.read().unwrap().get(path).copied()
     }
 
-    fn intern_file(&mut self, path: PathBuf, text: String) -> SourceFile {
+    fn intern_file(&mut self, path: PathBuf, text: Arc<str>) -> SourceFile {
+        let text = Arc::from(text);
         let existing = self.files.read().unwrap().get(&path).copied();
         if let Some(file) = existing {
             use salsa::Setter;

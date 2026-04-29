@@ -16,7 +16,7 @@ fn main() -> anyhow::Result<()> {
     let program = Program::from_path(cli.source, None)?;
 
     let mut compiler = Compiler::new();
-    let root = compiler.ingest_program(program);
+    let root = compiler.ingest_program(program)?;
     println!("Compilation unit: {}", root.name(compiler.db()));
 
     let files = compiler.files();
