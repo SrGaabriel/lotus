@@ -3,7 +3,7 @@ SourceFile = Decl*
 Decl =
   DefDecl
 
-DefDecl = 'def' name:Name
+DefDecl = 'def' name:Name ':=' expr:Expr
 
 Name = 'ident'
 

@@ -40,6 +40,12 @@ impl DefDecl {
     pub fn name(&self) -> Option<Name> {
         child(&self.0)
     }
+    pub fn def_eq(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::DefEq)
+    }
+    pub fn expr(&self) -> Option<Expr> {
+        child(&self.0)
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]

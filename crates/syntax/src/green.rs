@@ -7,7 +7,9 @@ use db::SourceFile;
 use diagnostics::Diagnostic;
 use text_size::TextSize;
 
+use crate::parser::marker::Marker;
 use crate::parser::parse_source_file;
+use crate::parser::token_set::TokenSet;
 use crate::{ResolvedNode, SyntaxNode};
 use crate::{
     lexer::{Lexer, Token, TokenKind},
@@ -33,6 +35,7 @@ pub struct Parser<'input> {
     cursor: usize,
     builder: GreenNodeBuilder<'static, 'static, SyntaxKind>,
     diagnostics: Vec<Diagnostic>,
+    expected: Vec<TokenKind>,
 }
 
 impl<'input> Parser<'input> {
@@ -43,6 +46,7 @@ impl<'input> Parser<'input> {
             cursor: 0,
             builder: GreenNodeBuilder::new(),
             diagnostics: Vec::new(),
+            expected: Vec::new(),
         }
     }
 
@@ -73,12 +77,26 @@ impl<'input> Parser<'input> {
         self.peek_nth(n).map_or(TokenKind::Eof, |t| t.kind)
     }
 
-    pub fn at(&self, kind: TokenKind) -> bool {
+    pub fn at(&mut self, kind: TokenKind) -> bool {
+        self.push_expected(kind);
         self.current() == kind
     }
 
-    pub fn at_any(&self, kinds: &[TokenKind]) -> bool {
+    pub fn at_any(&mut self, kinds: &[TokenKind]) -> bool {
+        for &k in kinds {
+            self.push_expected(k);
+        }
         kinds.contains(&self.current())
+    }
+
+    pub fn at_ts(&self, ts: TokenSet) -> bool {
+        ts.contains(self.current())
+    }
+
+    fn push_expected(&mut self, kind: TokenKind) {
+        if !self.expected.contains(&kind) {
+            self.expected.push(kind);
+        }
     }
 
     fn peek_nth(&self, n: usize) -> Option<Token<'input>> {
@@ -121,6 +139,21 @@ impl<'input> Parser<'input> {
             self.builder.token(kind, tok.text);
         }
         self.cursor += 1;
+        self.expected.clear();
+    }
+
+    pub fn bump_remap(&mut self, kind: SyntaxKind) {
+        self.eat_trivia();
+        let Some(tok) = self.tokens.get(self.cursor).copied() else {
+            return;
+        };
+        if kind.static_text().is_some() {
+            self.builder.static_token(kind);
+        } else {
+            self.builder.token(kind, tok.text);
+        }
+        self.cursor += 1;
+        self.expected.clear();
     }
 
     pub fn eat(&mut self, kind: TokenKind) -> bool {
@@ -132,10 +165,40 @@ impl<'input> Parser<'input> {
         }
     }
 
-    pub fn expect(&mut self, kind: TokenKind) {
-        if !self.eat(kind) {
-            self.error(&format!("expected {:?}, found {:?}", kind, self.current()));
+    pub fn expect_recover(&mut self, kind: TokenKind, recovery: TokenSet) -> bool {
+        if self.eat(kind) {
+            return true;
         }
+        self.err_recover(recovery);
+        false
+    }
+
+    pub fn err_recover(&mut self, recovery: TokenSet) {
+        let message = self.expected_message();
+        if self.at(TokenKind::Eof) || self.at_ts(recovery) {
+            self.error(&message);
+            return;
+        }
+        self.start_node(SyntaxKind::Error);
+        self.error(&message);
+        self.bump();
+        self.finish_node();
+    }
+
+    pub fn recover_until(&mut self, recovery: TokenSet) -> bool {
+        if self.at(TokenKind::Eof) || self.at_ts(recovery) {
+            return false;
+        }
+        self.start_node(SyntaxKind::Error);
+        while !self.at(TokenKind::Eof) && !self.at_ts(recovery) {
+            self.bump();
+        }
+        self.finish_node();
+        true
+    }
+
+    pub fn start(&mut self) -> Marker {
+        Marker::new(self.checkpoint())
     }
 
     pub fn start_node(&mut self, kind: SyntaxKind) {
@@ -152,8 +215,8 @@ impl<'input> Parser<'input> {
         self.builder.checkpoint()
     }
 
-    pub fn start_node_at(&mut self, cp: Checkpoint, kind: SyntaxKind) {
-        self.builder.start_node_at(cp, kind);
+    pub fn start_node_at(&mut self, checkpoint: Checkpoint, kind: SyntaxKind) {
+        self.builder.start_node_at(checkpoint, kind);
     }
 
     pub fn diagnostic(&mut self, diagnostic: Diagnostic) {
@@ -171,6 +234,27 @@ impl<'input> Parser<'input> {
         self.error(message);
         self.bump();
         self.finish_node();
+    }
+
+    fn expected_message(&mut self) -> String {
+        let found = self.current();
+        let mut expected = std::mem::take(&mut self.expected);
+        expected.sort_by_key(|k| k.as_index());
+        expected.dedup();
+        if expected.is_empty() {
+            format!("unexpected {found:?}")
+        } else {
+            let parts: Vec<String> = expected.iter().map(|k| format!("{k:?}")).collect();
+            let list = match parts.as_slice() {
+                [single] => single.clone(),
+                [a, b] => format!("{a} or {b}"),
+                rest => {
+                    let (last, init) = rest.split_last().unwrap();
+                    format!("{}, or {last}", init.join(", "))
+                }
+            };
+            format!("expected {list}, found {found:?}")
+        }
     }
 
     pub fn current_range(&self) -> TextRange {

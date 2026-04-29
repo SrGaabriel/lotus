@@ -35,6 +35,8 @@ pub enum SyntaxKind {
     Comma,
     #[static_text(".")]
     Dot,
+    #[static_text(":=")]
+    DefEq,
 
     Unknown,
 
@@ -67,6 +69,7 @@ impl SyntaxKind {
             TokenKind::Semicolon => Self::Semicolon,
             TokenKind::Comma => Self::Comma,
             TokenKind::Dot => Self::Dot,
+            TokenKind::DefEq => Self::DefEq,
             TokenKind::Unknown => Self::Unknown,
             TokenKind::Eof => unreachable!("Eof never reaches the syntax tree"),
         }
