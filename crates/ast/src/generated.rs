@@ -1,3 +1,4 @@
+// @generated
 use crate::traits::{AstNode, AstChildren, child, children, token};
 use syntax::{ResolvedNode, ResolvedToken, kind::SyntaxKind};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

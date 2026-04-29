@@ -23,7 +23,10 @@ pub fn emit(src: &AstSrc) -> Result<String> {
     };
 
     let parsed: syn::File = syn::parse2(file)?;
-    Ok(prettyplease::unparse(&parsed))
+    let mut out = prettyplease::unparse(&parsed);
+
+    out = format!("// @generated\n{}", out);
+    Ok(out)
 }
 
 fn emit_node(n: &AstNodeSrc) -> TokenStream {
