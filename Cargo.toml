@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ast", "crates/db", "crates/diagnostics","crates/driver", "crates/lotus", "crates/structure", "crates/syntax", "xtask"]
+members = ["crates/ast", "crates/db", "crates/diagnostics","crates/driver", "crates/elaborator", "crates/lotus", "crates/structure", "crates/syntax", "xtask"]
 default-members = ["crates/lotus"]
 
 [workspace.package]

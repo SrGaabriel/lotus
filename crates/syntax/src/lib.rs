@@ -2,14 +2,13 @@ use cstree::util::NodeOrToken;
 use db::SourceFile;
 
 use crate::{
-    green::{Parsed, Parser},
-    red::SyntaxKind,
+    kind::SyntaxKind,
+    parser::{Parsed, Parser},
 };
 
-pub mod green;
+pub mod kind;
 pub mod lexer;
 pub mod parser;
-pub mod red;
 
 pub type SyntaxNode = cstree::syntax::SyntaxNode<SyntaxKind>;
 pub type SyntaxToken = cstree::syntax::SyntaxToken<SyntaxKind>;

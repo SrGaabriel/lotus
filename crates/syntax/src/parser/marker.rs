@@ -1,6 +1,6 @@
 use cstree::build::Checkpoint;
 
-use crate::{green::Parser, red::SyntaxKind};
+use crate::{kind::SyntaxKind, parser::Parser};
 
 pub struct Marker {
     checkpoint: Checkpoint,
