@@ -25,7 +25,7 @@ pub fn emit(src: &AstSrc) -> Result<String> {
     let parsed: syn::File = syn::parse2(file)?;
     let mut out = prettyplease::unparse(&parsed);
 
-    out = format!("// @generated\n{}", out);
+    out = format!("// @generated\n{out}");
     Ok(out)
 }
 
