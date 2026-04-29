@@ -8,6 +8,8 @@ authors.workspace = true
 
 [dependencies]
 cstree.workspace = true
+diagnostics.workspace = true
+text-size.workspace = true
 
 [lints]
 workspace = true

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ast", "crates/db","crates/driver", "crates/lotus", "crates/syntax", "xtask"]
+members = ["crates/ast", "crates/db", "crates/diagnostics","crates/driver", "crates/lotus", "crates/syntax", "xtask"]
 default-members = ["crates/lotus"]
 
 [workspace.package]
@@ -17,6 +17,7 @@ ast = { path = "crates/ast" }
 db = { path = "crates/db" }
 driver = { path = "crates/driver" }
 syntax = { path = "crates/syntax" }
+diagnostics = { path = "crates/diagnostics" }
 
 # External
 clap = { version = "^4.6", features = ["derive"] }
@@ -24,6 +25,8 @@ clap = { version = "^4.6", features = ["derive"] }
 cstree = { version = "^0.14", features = ["derive", "serialize", "lasso", "multi_threaded_interning"] }
 salsa = { version = "^0.26" }
 ungrammar = "^1.16"
+ariadne = { version = "^0.6", features = ["auto-color"] }
+text-size = "^1.1"
 
 anyhow = "1"
 thiserror = "1"
@@ -39,3 +42,5 @@ heck = "^0.5"
 pedantic = { level = "warn", priority = -1 }
 must_use_candidate = "allow"
 missing_panics_doc = "allow"
+missing_errors_doc = "allow"
+return_self_not_must_use = "allow"

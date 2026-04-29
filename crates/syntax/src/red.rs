@@ -57,6 +57,7 @@ impl SyntaxKind {
             TokenKind::BlockComment { .. } => Self::BlockComment,
             TokenKind::Identifier => Self::Identifier,
             TokenKind::OpIdentifier => Self::OpIdentifier,
+            TokenKind::Number => Self::NumberLit,
             TokenKind::LParen => Self::LParen,
             TokenKind::RParen => Self::RParen,
             TokenKind::LBrace => Self::LBrace,

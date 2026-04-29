@@ -15,8 +15,6 @@ pub fn emit(src: &AstSrc) -> Result<String> {
     let enums = src.enums.iter().map(emit_enum);
 
     let file: TokenStream = quote! {
-        #![allow(non_snake_case, dead_code)]
-
         use crate::traits::{AstNode, AstChildren, child, children, token};
         use syntax::{ResolvedNode, ResolvedToken, red::SyntaxKind};
 

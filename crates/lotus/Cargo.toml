@@ -8,7 +8,8 @@ authors.workspace = true
 
 [dependencies]
 clap.workspace = true
-syntax.workspace = true
+ast.workspace = true
+diagnostics.workspace = true
 
 [lints]
 workspace = true

@@ -11,6 +11,8 @@ pub enum TokenKind {
     Identifier,
     OpIdentifier,
 
+    Number,
+
     LParen,
     RParen,
     LBrace,
@@ -137,6 +139,10 @@ impl<'a> Cursor<'a> {
 
             c if is_id_start(c) => self.ident(),
             c if is_op_char(c) => self.op_ident(),
+            c if c.is_ascii_digit() => {
+                self.eat_while(|c| c.is_ascii_digit());
+                TokenKind::Number
+            }
 
             '(' => TokenKind::LParen,
             ')' => TokenKind::RParen,

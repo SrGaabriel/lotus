@@ -2,22 +2,22 @@ use cstree::Syntax;
 use cstree::build::{Checkpoint, GreenNodeBuilder};
 use cstree::green::GreenNode;
 use cstree::interning::TokenInterner;
+use cstree::text::TextRange;
+use diagnostics::Diagnostic;
+use diagnostics::files::FileId;
+use text_size::TextSize;
 
+use crate::parser::parse_source_file;
 use crate::{ResolvedNode, SyntaxNode};
 use crate::{
     lexer::{Lexer, Token, TokenKind},
     red::SyntaxKind,
 };
 
-#[derive(Debug)]
-pub struct ParseError {
-    pub message: String,
-    pub offset: u32,
-}
-
 pub struct Parsed {
+    pub file: FileId,
     pub green: GreenNode,
-    pub errors: Vec<ParseError>,
+    pub diagnostics: Vec<Diagnostic>,
     pub interner: TokenInterner,
 }
 
@@ -28,38 +28,45 @@ impl Parsed {
 }
 
 pub struct Parser<'input> {
+    file: FileId,
     tokens: Vec<Token<'input>>,
     cursor: usize,
     builder: GreenNodeBuilder<'static, 'static, SyntaxKind>,
-    errors: Vec<ParseError>,
+    diagnostics: Vec<Diagnostic>,
 }
 
 impl<'input> Parser<'input> {
-    pub fn new(input: &'input str) -> Self {
+    pub fn new(file: FileId, input: &'input str) -> Self {
         Self {
+            file,
             tokens: Lexer::new(input).collect(),
             cursor: 0,
             builder: GreenNodeBuilder::new(),
-            errors: Vec::new(),
+            diagnostics: Vec::new(),
         }
     }
 
     pub fn parse(mut self) -> Parsed {
         self.builder.start_node(SyntaxKind::Root);
-        self.eat_trivia();
+        parse_source_file(&mut self);
         self.builder.finish_node();
 
         let (green, cache) = self.builder.finish();
         let interner = cache.unwrap().into_interner().unwrap();
         Parsed {
+            file: self.file,
             green,
-            errors: self.errors,
+            diagnostics: self.diagnostics,
             interner,
         }
     }
 
     pub fn current(&self) -> TokenKind {
         self.nth(0)
+    }
+
+    pub fn current_text(&self) -> &str {
+        self.peek_nth(0).map_or("", |t| t.text)
     }
 
     pub fn nth(&self, n: usize) -> TokenKind {
@@ -127,7 +134,7 @@ impl<'input> Parser<'input> {
 
     pub fn expect(&mut self, kind: TokenKind) {
         if !self.eat(kind) {
-            self.error(format!("expected {:?}, found {:?}", kind, self.current()));
+            self.error(&format!("expected {:?}, found {:?}", kind, self.current()));
         }
     }
 
@@ -149,22 +156,46 @@ impl<'input> Parser<'input> {
         self.builder.start_node_at(cp, kind);
     }
 
-    pub fn error(&mut self, message: impl Into<String>) {
-        let offset = self
-            .tokens
-            .get(self.cursor)
-            .map(|t| t.offset)
-            .unwrap_or_default();
-        self.errors.push(ParseError {
-            message: message.into(),
-            offset,
-        });
+    pub fn diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
     }
 
-    pub fn error_and_bump(&mut self, message: impl Into<String>) {
+    pub fn error(&mut self, message: &str) {
+        let range = self.current_range();
+        self.diagnostics
+            .push(Diagnostic::error(message, self.file, range).build());
+    }
+
+    pub fn error_and_bump(&mut self, message: &str) {
         self.start_node(SyntaxKind::Error);
         self.error(message);
         self.bump();
         self.finish_node();
+    }
+
+    pub fn current_range(&self) -> TextRange {
+        if let Some(tok) = self.peek_nth(0) {
+            let start = TextSize::new(tok.offset);
+            let end = start + TextSize::new(tok.text.len() as u32);
+            TextRange::new(start, end)
+        } else {
+            let pos = self
+                .tokens
+                .last()
+                .map_or(0, |t| t.offset + t.text.len() as u32);
+            TextRange::empty(TextSize::new(pos))
+        }
+    }
+
+    pub fn prev_range(&self) -> Option<TextRange> {
+        self.tokens[..self.cursor]
+            .iter()
+            .rev()
+            .find(|t| !SyntaxKind::from_token(t.kind).is_trivia())
+            .map(|t| {
+                let start = TextSize::new(t.offset);
+                let end = start + TextSize::new(t.text.len() as u32);
+                TextRange::new(start, end)
+            })
     }
 }

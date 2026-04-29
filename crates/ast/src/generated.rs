@@ -1,4 +1,3 @@
-#![allow(non_snake_case, dead_code)]
 use crate::traits::{AstChildren, AstNode, child, children, token};
 use syntax::{ResolvedNode, ResolvedToken, red::SyntaxKind};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
