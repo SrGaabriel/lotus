@@ -1,6 +1,7 @@
+use structure::FileId;
 use text_size::TextRange;
 
-use crate::{Diagnostic, Label, Severity, files::FileId};
+use crate::{Diagnostic, Label, Severity};
 
 pub struct DiagnosticBuilder {
     pub severity: Severity,

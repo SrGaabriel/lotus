@@ -10,6 +10,7 @@ authors.workspace = true
 cstree.workspace = true
 diagnostics.workspace = true
 text-size.workspace = true
+structure.workspace = true
 
 [lints]
 workspace = true

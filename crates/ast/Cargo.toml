@@ -11,6 +11,9 @@ syntax.workspace = true
 cstree.workspace = true
 ungrammar.workspace = true
 diagnostics.workspace = true
+structure.workspace = true
+db.workspace = true
+salsa.workspace = true
 
 [lints]
 workspace = true

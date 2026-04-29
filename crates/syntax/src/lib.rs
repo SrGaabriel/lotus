@@ -1,5 +1,5 @@
 use cstree::util::NodeOrToken;
-use diagnostics::files::FileId;
+use structure::FileId;
 
 use crate::{
     green::{Parsed, Parser},

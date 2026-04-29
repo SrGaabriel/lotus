@@ -3,8 +3,9 @@ pub mod traits;
 
 use std::marker::PhantomData;
 
-use diagnostics::{Diagnostic, files::FileId};
+use diagnostics::Diagnostic;
 pub use generated::*;
+use structure::FileId;
 use syntax::ResolvedNode;
 
 use crate::traits::AstNode;

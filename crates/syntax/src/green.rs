@@ -4,7 +4,7 @@ use cstree::green::GreenNode;
 use cstree::interning::TokenInterner;
 use cstree::text::TextRange;
 use diagnostics::Diagnostic;
-use diagnostics::files::FileId;
+use structure::FileId;
 use text_size::TextSize;
 
 use crate::parser::parse_source_file;

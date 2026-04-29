@@ -1,15 +1,13 @@
 use std::{ops::Range, path::PathBuf};
 
 use ariadne::{ColorGenerator, Label as ReportLabel, Report, ReportKind};
+use structure::Files;
 
-use crate::{
-    Diagnostic, Label, Severity,
-    files::{Files, FilesCache},
-};
+use crate::{Diagnostic, Label, Severity, files::FilesCache};
 
 pub fn render(cache: &mut FilesCache, diagnostic: &Diagnostic) {
     let report = to_report(cache.files, diagnostic);
-    report.eprint(cache).unwrap();
+    report.print(cache).unwrap();
 }
 
 pub fn to_report<'a>(

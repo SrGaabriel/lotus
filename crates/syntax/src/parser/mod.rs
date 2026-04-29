@@ -6,7 +6,7 @@ pub fn parse_source_file(p: &mut Parser) {
         if at_decl_start(p) {
             parse_decl(p);
         } else {
-            p.bump();
+            p.error_and_bump("expected a declaration");
         }
     }
     p.finish_node();

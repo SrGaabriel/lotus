@@ -2,9 +2,8 @@ pub mod builder;
 pub mod files;
 pub mod render;
 
+use structure::FileId;
 use text_size::TextRange;
-
-use crate::files::FileId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Severity {
