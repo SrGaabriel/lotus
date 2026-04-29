@@ -33,7 +33,7 @@ pub enum TokenKind {
 
 impl TokenKind {
     pub const fn as_index(self) -> u8 {
-        unsafe { *<*const _>::from(&self).cast::<u8>() }
+        unsafe { *(&raw const self).cast::<u8>() }
     }
 }
 

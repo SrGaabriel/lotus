@@ -1,6 +1,3 @@
-#![feature(const_convert)]
-#![feature(const_trait_impl)]
-
 use cstree::util::NodeOrToken;
 use db::SourceFile;
 

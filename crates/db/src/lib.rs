@@ -50,7 +50,6 @@ impl SourceDatabase for RootDatabase {
     }
 
     fn intern_file(&mut self, path: PathBuf, text: Arc<str>) -> SourceFile {
-        let text = Arc::from(text);
         let existing = self.files.read().unwrap().get(&path).copied();
         if let Some(file) = existing {
             use salsa::Setter;

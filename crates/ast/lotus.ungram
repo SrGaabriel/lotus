@@ -5,13 +5,12 @@ Decl =
 
 DefDecl = 'def' name:Name ':=' expr:Expr
 
-Name = 'ident'
-
 Expr =
   Literal
 | Name
 
 Literal = NumberLit | StringLit
 
+Name = 'ident'
 NumberLit = 'number_lit'
 StringLit = 'string_lit'

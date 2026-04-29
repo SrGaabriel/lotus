@@ -16,7 +16,7 @@ pub fn emit(src: &AstSrc) -> Result<String> {
 
     let file: TokenStream = quote! {
         use crate::traits::{AstNode, AstChildren, child, children, token};
-        use syntax::{ResolvedNode, ResolvedToken, red::SyntaxKind};
+        use syntax::{ResolvedNode, ResolvedToken, kind::SyntaxKind};
 
         #(#nodes)*
         #(#enums)*
