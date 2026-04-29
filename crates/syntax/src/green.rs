@@ -3,8 +3,8 @@ use cstree::build::{Checkpoint, GreenNodeBuilder};
 use cstree::green::GreenNode;
 use cstree::interning::TokenInterner;
 use cstree::text::TextRange;
-use diagnostics::Diagnostic;
 use db::SourceFile;
+use diagnostics::Diagnostic;
 use text_size::TextSize;
 
 use crate::parser::parse_source_file;
