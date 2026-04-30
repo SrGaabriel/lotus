@@ -15,12 +15,12 @@ instance : Inhabited Level where
   default := Level.zero
 
 inductive Expr where
-  | bvar  : Nat -> Expr
+  | bvar  : Nat → Expr
   | app   : Expr → Expr → Expr
   | lam   : Expr → Expr
   | pi    : Expr → Expr → Expr
-  | sort  : Level -> Expr
-  | const : Nat -> Expr
+  | sort  : Level → Expr
+  | const : Nat → Expr
 
 abbrev Context := List Expr
 abbrev Env := Array Expr
@@ -99,3 +99,45 @@ theorem reduce_star_confluent {env : Env} {e₁ e₂ e₃ : Expr} :
               | delta h2 =>
                   cases h1.symm.trans h2
                   exact ih h33
+
+/-- If a term reduces to two normal forms, then those normal forms must be equal -/
+theorem reduce_star_unique_normal_form {env : Env} {e n₁ n₂ : Expr} :
+  ReduceStar env e n₁ →
+  ReduceStar env e n₂ →
+  (∀ n', ¬ Reduce env n₁ n') →
+  (∀ n', ¬ Reduce env n₂ n') →
+  n₁ = n₂ := by
+  intro h1 h2 hnf1 hnf2
+  have ⟨e₄, h14, h24⟩ := reduce_star_confluent h1 h2
+
+  have he1 : n₁ = e₄ := by
+    cases h14 with
+    | refl => rfl
+    | step hr _ =>
+        exact (hnf1 _ hr).elim
+
+  have he2 : n₂ = e₄ := by
+    cases h24 with
+    | refl => rfl
+    | step hr _ =>
+        exact (hnf2 _ hr).elim
+
+  exact he1.trans he2.symm
+
+/-- All normal forms are unique -/
+theorem reduce_star_unique_normal_form' {env : Env} {e n : Expr} :
+  ReduceStar env e n →
+  (∀ n_next, ¬ Reduce env n n_next) →
+  ∀ n', ReduceStar env e n' →
+  (∀ n'_next, ¬ Reduce env n' n'_next) →
+  n = n' := by
+  intro h1 hnf1 n' h2 hnf2
+  have ⟨e₄, h14, h24⟩ := reduce_star_confluent h1 h2
+
+  cases h14 with
+  | refl =>
+    cases h24 with
+    | refl => rfl
+    | step hr _ => exact (hnf2 _ hr).elim
+  | step hr _ =>
+    exact (hnf1 _ hr).elim
