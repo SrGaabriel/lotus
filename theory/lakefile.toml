@@ -1,0 +1,6 @@
+name = "Locus"
+version = "0.1.0"
+defaultTargets = ["Locus"]
+
+[[lean_lib]]
+name = "Locus"
