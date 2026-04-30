@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ast", "crates/db", "crates/diagnostics","crates/driver", "crates/elaborator", "crates/lotus", "crates/structure", "crates/syntax", "xtask"]
+members = ["crates/ast", "crates/db", "crates/diagnostics","crates/driver", "crates/elaborator", "crates/lotus", "crates/lsp", "crates/structure", "crates/syntax", "xtask"]
 default-members = ["crates/lotus"]
 
 [workspace.package]
@@ -19,6 +19,7 @@ driver = { path = "crates/driver" }
 syntax = { path = "crates/syntax" }
 diagnostics = { path = "crates/diagnostics" }
 structure = { path = "crates/structure" }
+elaborator = { path = "crates/elaborator" }
 
 # External
 clap = { version = "^4.6", features = ["derive"] }
@@ -40,6 +41,9 @@ strum = { version = "^0.28", features = ["derive"] }
 
 heck = "^0.5"
 rustc-hash = "^2.1"
+
+tokio = { version = "^1", features = ["full"] }
+tower-lsp = "^0.20"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
