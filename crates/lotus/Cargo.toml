@@ -1,10 +1,10 @@
 [package]
 name = "lotus"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-authors.workspace = true
 
 [dependencies]
 anyhow.workspace = true
@@ -12,6 +12,8 @@ clap.workspace = true
 diagnostics.workspace = true
 driver.workspace = true
 structure.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true

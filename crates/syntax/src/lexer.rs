@@ -1,5 +1,4 @@
 use std::str::Chars;
-
 use strum::FromRepr;
 
 pub const EOF_CHAR: char = '\0';

@@ -1,14 +1,27 @@
 use anyhow::Result;
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote};
+use proc_macro2::{
+    Ident,
+    Span,
+    TokenStream,
+};
+use quote::{
+    format_ident,
+    quote,
+};
 
 fn ident(name: &str) -> Ident {
     syn::parse_str::<Ident>(name).unwrap_or_else(|_| Ident::new_raw(name, Span::call_site()))
 }
 
-use crate::codegen::ast::{AstEnumSrc, AstNodeSrc};
-
-use super::{AstSrc, Cardinality, Field};
+use super::{
+    AstSrc,
+    Cardinality,
+    Field,
+};
+use crate::codegen::ast::{
+    AstEnumSrc,
+    AstNodeSrc,
+};
 
 pub fn emit(src: &AstSrc) -> Result<String> {
     let nodes = src.nodes.iter().map(emit_node);

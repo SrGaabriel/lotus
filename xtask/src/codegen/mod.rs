@@ -1,6 +1,10 @@
 pub mod ast;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{
+    Context,
+    Result,
+    bail,
+};
 use std::path::PathBuf;
 
 pub fn run(check: bool) -> Result<()> {

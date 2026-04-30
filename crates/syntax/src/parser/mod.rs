@@ -2,23 +2,40 @@ pub mod marker;
 pub mod root;
 pub mod token_set;
 
-use cstree::Syntax;
-use cstree::build::{Checkpoint, GreenNodeBuilder};
-use cstree::green::GreenNode;
-use cstree::interning::TokenInterner;
-use cstree::text::TextRange;
-use db::SourceFile;
-use diagnostics::Diagnostic;
-use text_size::TextSize;
-
-use crate::parser::marker::Marker;
-use crate::parser::root::parse_source_file;
-use crate::parser::token_set::TokenSet;
-use crate::{ResolvedNode, SyntaxNode};
 use crate::{
+    ResolvedNode,
+    SyntaxNode,
     kind::SyntaxKind,
-    lexer::{Lexer, Token, TokenKind},
+    lexer::{
+        Lexer,
+        Token,
+        TokenKind,
+    },
+    parser::{
+        marker::Marker,
+        root::parse_source_file,
+        token_set::TokenSet,
+    },
 };
+use cstree::{
+    Syntax,
+    build::{
+        Checkpoint,
+        GreenNodeBuilder,
+    },
+    green::GreenNode,
+    interning::TokenInterner,
+    text::TextRange,
+};
+use db::SourceFile;
+use diagnostics::{
+    Diagnostic,
+    EnrichTy,
+    Label,
+    Severity,
+    builder::DiagnosticBuilder,
+};
+use text_size::TextSize;
 
 pub struct Parsed {
     pub file: SourceFile,
@@ -69,8 +86,24 @@ impl<'input> Parser<'input> {
         }
     }
 
+    pub fn label(&self, range: TextRange, msg: impl Into<String>) -> Label {
+        Label {
+            file: self.file,
+            range,
+            message: Some(msg.into()),
+        }
+    }
+
     pub fn current(&self) -> TokenKind {
         self.nth(0)
+    }
+
+    pub fn try_current(&self) -> Option<TokenKind> {
+        self.peek_nth(0).map(|t| t.kind)
+    }
+
+    pub fn try_current_text(&self) -> Option<&str> {
+        self.peek_nth(0).map(|t| t.text)
     }
 
     pub fn current_text(&self) -> &str {
@@ -189,6 +222,29 @@ impl<'input> Parser<'input> {
         self.finish_node();
     }
 
+    pub fn error_expected(&mut self, what: &str, recovery: TokenSet) {
+        self.error_expected_with(what, recovery, |b| b);
+    }
+
+    pub fn error_expected_with(&mut self, what: &str, recovery: TokenSet, enrich: EnrichTy!()) {
+        let found = self.current();
+        let range = self.current_range();
+        let msg = format!("expected {what}, found {found:?}");
+        let mut builder = Diagnostic::builder(Severity::Error, &msg, self.file, range);
+        builder.primary.message = Some(format!("this is not a valid {what}"));
+        let diag = enrich(builder).build();
+        self.expected.clear();
+
+        if self.at(TokenKind::Eof) || self.at_ts(recovery) {
+            self.diagnostics.push(diag);
+            return;
+        }
+        self.start_node(SyntaxKind::Error);
+        self.diagnostics.push(diag);
+        self.bump();
+        self.finish_node();
+    }
+
     pub fn recover_until(&mut self, recovery: TokenSet) -> bool {
         if self.at(TokenKind::Eof) || self.at_ts(recovery) {
             return false;
@@ -227,6 +283,10 @@ impl<'input> Parser<'input> {
         self.diagnostics.push(diagnostic);
     }
 
+    pub fn diag(&self, severity: Severity, message: &str) -> DiagnosticBuilder {
+        Diagnostic::builder(severity, message, self.file, self.current_range())
+    }
+
     pub fn error(&mut self, message: &str) {
         let range = self.current_range();
         self.diagnostics
@@ -243,22 +303,20 @@ impl<'input> Parser<'input> {
     fn expected_message(&mut self) -> String {
         let found = self.current();
         let mut expected = std::mem::take(&mut self.expected);
-        expected.sort_by_key(|k| k.as_index());
-        expected.dedup();
         if expected.is_empty() {
-            format!("unexpected {found:?}")
-        } else {
-            let parts: Vec<String> = expected.iter().map(|k| format!("{k:?}")).collect();
-            let list = match parts.as_slice() {
-                [single] => single.clone(),
-                [a, b] => format!("{a} or {b}"),
-                rest => {
-                    let (last, init) = rest.split_last().unwrap();
-                    format!("{}, or {last}", init.join(", "))
-                }
-            };
-            format!("expected {list}, found {found:?}")
+            return format!("unexpected {found:?}");
         }
+        expected.sort_by_key(|k| k.as_index());
+        let parts: Vec<String> = expected.iter().map(|k| format!("{k:?}")).collect();
+        let list = match parts.as_slice() {
+            [single] => single.clone(),
+            [a, b] => format!("{a} or {b}"),
+            rest => {
+                let (last, init) = rest.split_last().unwrap();
+                format!("{}, or {last}", init.join(", "))
+            }
+        };
+        format!("expected {list}, found {found:?}")
     }
 
     pub fn current_range(&self) -> TextRange {

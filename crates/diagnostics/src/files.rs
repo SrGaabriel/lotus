@@ -1,9 +1,19 @@
-use std::collections::hash_map::Entry;
-use std::fmt;
-use std::{collections::HashMap, sync::Arc};
-
-use ariadne::{Cache, Source};
-use db::{SourceDatabase, SourceFile};
+use ariadne::{
+    Cache,
+    Source,
+};
+use db::{
+    SourceDatabase,
+    SourceFile,
+};
+use std::{
+    collections::{
+        HashMap,
+        hash_map::Entry,
+    },
+    fmt,
+    sync::Arc,
+};
 
 /// An ariadne [`Cache`] that resolves [`SourceFile`] ids through the db.
 pub struct FilesCache<'db> {

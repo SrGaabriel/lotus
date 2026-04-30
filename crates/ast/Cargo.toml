@@ -1,18 +1,18 @@
 [package]
 name = "ast"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-authors.workspace = true
 
 [dependencies]
-syntax.workspace = true
 cstree.workspace = true
-ungrammar.workspace = true
-diagnostics.workspace = true
 db.workspace = true
+diagnostics.workspace = true
 salsa.workspace = true
+syntax.workspace = true
+ungrammar.workspace = true
 
 [lints]
 workspace = true

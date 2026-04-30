@@ -1,6 +1,5 @@
-use cstree::Syntax;
-
 use crate::lexer::TokenKind;
+use cstree::Syntax;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Syntax)]
 #[repr(u32)]

@@ -1,10 +1,29 @@
-use std::{path::PathBuf, sync::Arc};
-
-use ast::{Parse, SourceFile as AstSourceFile, parse_file};
-use db::{RootDatabase, SourceDatabase, SourceFile, SourceRoot};
+use ast::{
+    Parse,
+    SourceFile as AstSourceFile,
+    parse_file,
+};
+use db::{
+    RootDatabase,
+    SourceDatabase,
+    SourceFile,
+    SourceRoot,
+};
 use diagnostics::Diagnostic;
-use salsa::{CancellationToken, Database, Durability};
-use structure::{Package, Program};
+use salsa::{
+    CancellationToken,
+    Database,
+    Durability,
+};
+use std::{
+    path::PathBuf,
+    sync::Arc,
+};
+use structure::{
+    Package,
+    Program,
+};
+use tracing::debug;
 
 pub struct Compiler {
     db: RootDatabase,
@@ -102,6 +121,7 @@ impl Compiler {
             source,
         })?;
         let text: Arc<str> = Arc::from(text.into_boxed_str());
+        debug!("Interning file: {}", path.display());
         Ok(self.db.intern_file(path, text))
     }
 }

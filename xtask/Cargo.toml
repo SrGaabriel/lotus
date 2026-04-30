@@ -1,20 +1,20 @@
 [package]
 name = "xtask"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-authors.workspace = true
 
 [dependencies]
-ungrammar.workspace = true
-quote.workspace = true
-proc-macro2.workspace = true
-prettyplease.workspace = true
-syn.workspace = true
-clap.workspace = true
 anyhow.workspace = true
+clap.workspace = true
 heck.workspace = true
+prettyplease.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true
+ungrammar.workspace = true
 
 [lints]
 workspace = true

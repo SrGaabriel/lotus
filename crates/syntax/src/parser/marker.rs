@@ -1,6 +1,8 @@
+use crate::{
+    kind::SyntaxKind,
+    parser::Parser,
+};
 use cstree::build::Checkpoint;
-
-use crate::{kind::SyntaxKind, parser::Parser};
 
 pub struct Marker {
     checkpoint: Checkpoint,
@@ -32,10 +34,8 @@ impl Marker {
 
 impl Drop for Marker {
     fn drop(&mut self) {
-        debug_assert!(
-            self.consumed,
-            "Marker dropped without complete/abandon — parser bug"
-        );
+        // TODO: make this debug_assert on release
+        assert!(self.consumed);
     }
 }
 

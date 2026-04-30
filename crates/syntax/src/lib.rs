@@ -1,10 +1,12 @@
-use cstree::util::NodeOrToken;
-use db::SourceFile;
-
 use crate::{
     kind::SyntaxKind,
-    parser::{Parsed, Parser},
+    parser::{
+        Parsed,
+        Parser,
+    },
 };
+use cstree::util::NodeOrToken;
+use db::SourceFile;
 
 pub mod kind;
 pub mod lexer;

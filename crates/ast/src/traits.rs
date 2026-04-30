@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
-
-use syntax::{ResolvedNode, ResolvedToken, kind::SyntaxKind};
+use syntax::{
+    ResolvedNode,
+    ResolvedToken,
+    kind::SyntaxKind,
+};
 
 pub trait AstNode: Clone {
     fn can_cast(kind: SyntaxKind) -> bool

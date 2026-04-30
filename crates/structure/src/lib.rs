@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::path::{
+    Path,
+    PathBuf,
+};
 
 pub const EXTENSION: &str = "lo";
 

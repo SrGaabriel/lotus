@@ -1,8 +1,15 @@
 pub mod emit;
 
-use anyhow::{Result, bail};
+use anyhow::{
+    Result,
+    bail,
+};
 use heck::ToSnakeCase;
-use ungrammar::{Grammar, NodeData, Rule};
+use ungrammar::{
+    Grammar,
+    NodeData,
+    Rule,
+};
 
 pub struct AstSrc {
     pub nodes: Vec<AstNodeSrc>,

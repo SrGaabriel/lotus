@@ -1,7 +1,17 @@
+use crate::{
+    Diagnostic,
+    Label,
+    Severity,
+};
 use db::SourceFile;
 use text_size::TextRange;
 
-use crate::{Diagnostic, Label, Severity};
+#[macro_export]
+macro_rules! EnrichTy {
+    () => {
+        impl FnOnce(diagnostics::builder::DiagnosticBuilder) -> diagnostics::builder::DiagnosticBuilder
+    };
+}
 
 pub struct DiagnosticBuilder {
     pub severity: Severity,
@@ -43,6 +53,11 @@ impl DiagnosticBuilder {
         self
     }
 
+    pub fn with_secondary_label(mut self, label: Label) -> Self {
+        self.secondaries.push(label);
+        self
+    }
+
     pub fn build(self) -> Diagnostic {
         Diagnostic {
             severity: self.severity,
@@ -69,7 +84,7 @@ impl Diagnostic {
         Self::builder(Severity::Lint, message, file, range)
     }
 
-    fn builder(
+    pub fn builder(
         severity: Severity,
         message: &str,
         file: SourceFile,
@@ -88,38 +103,5 @@ impl Diagnostic {
             notes: Vec::new(),
             helps: Vec::new(),
         }
-    }
-}
-
-pub struct DiagnosticFrame<'a> {
-    pub message: String,
-    pub code: Option<&'a str>,
-    pub help: Option<&'a str>,
-    pub note: Option<&'a str>,
-}
-
-impl<'a> DiagnosticFrame<'a> {
-    pub fn new(message: String) -> Self {
-        Self {
-            message,
-            code: None,
-            help: None,
-            note: None,
-        }
-    }
-
-    pub fn with_code(mut self, code: &'a str) -> Self {
-        self.code = Some(code);
-        self
-    }
-
-    pub fn with_help(mut self, help: &'a str) -> Self {
-        self.help = Some(help);
-        self
-    }
-
-    pub fn with_note(mut self, note: &'a str) -> Self {
-        self.note = Some(note);
-        self
     }
 }

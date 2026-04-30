@@ -1,15 +1,16 @@
 pub mod generated;
 pub mod traits;
 
-use std::marker::PhantomData;
-
-use db::{SourceDatabase, SourceFile as DbFile};
+use crate::traits::AstNode;
+use db::{
+    SourceDatabase,
+    SourceFile as DbFile,
+};
 use diagnostics::Diagnostic;
 pub use generated::*;
 use salsa::Accumulator;
+use std::marker::PhantomData;
 use syntax::ResolvedNode;
-
-use crate::traits::AstNode;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Parse<T> {

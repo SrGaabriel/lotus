@@ -1,7 +1,15 @@
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
-
 use rustc_hash::FxHashMap;
+use salsa::Setter;
+use std::{
+    path::{
+        Path,
+        PathBuf,
+    },
+    sync::{
+        Arc,
+        RwLock,
+    },
+};
 
 #[salsa::input(debug)]
 pub struct SourceFile {
@@ -52,7 +60,6 @@ impl SourceDatabase for RootDatabase {
     fn intern_file(&mut self, path: PathBuf, text: Arc<str>) -> SourceFile {
         let existing = self.files.read().unwrap().get(&path).copied();
         if let Some(file) = existing {
-            use salsa::Setter;
             file.set_text(self).to(text);
             return file;
         }
