@@ -1,34 +1,23 @@
-use diagnostics::EnrichTy;
-
 use super::token_set::TokenSet;
 use crate::{
     kind::SyntaxKind,
     lexer::TokenKind,
-    parser::Parser,
+    parser::{Parser, expr::EXPR_FIRST},
 };
 
-const DECL_FIRST: TokenSet = TokenSet::new(&[TokenKind::Identifier]);
-const EXPR_FIRST: TokenSet =
-    TokenSet::new(&[TokenKind::Identifier, TokenKind::Number, TokenKind::LParen]);
+pub const DECL_FIRST: TokenSet = TokenSet::new(&[TokenKind::Identifier]);
 
-fn is_contextual_kw(text: &str) -> bool {
+pub fn is_contextual_kw(text: &str) -> bool {
     matches!(text, "def")
 }
 
 impl Parser<'_> {
-    fn at_kw(&self, kw: &str) -> bool {
+    pub fn at_kw(&self, kw: &str) -> bool {
         self.current() == TokenKind::Identifier && self.current_text() == kw
     }
 
-    fn at_decl_start(&self) -> bool {
+    pub fn at_decl_start(&self) -> bool {
         self.at_kw("def")
-    }
-
-    fn at_expr_start(&self) -> bool {
-        if !self.at_ts(EXPR_FIRST) {
-            return false;
-        }
-        !(self.current() == TokenKind::Identifier && is_contextual_kw(self.current_text()))
     }
 
     pub fn parse_source_file(&mut self) {
@@ -43,12 +32,12 @@ impl Parser<'_> {
         m.complete(self, SyntaxKind::SourceFile);
     }
 
-    fn parse_decl(&mut self) {
+    pub fn parse_decl(&mut self) {
         debug_assert!(self.at_decl_start());
         self.parse_def_decl();
     }
 
-    fn parse_def_decl(&mut self) {
+    pub fn parse_def_decl(&mut self) {
         let m = self.start();
         self.bump_remap(SyntaxKind::DefKw);
         let recovery = DECL_FIRST.union(EXPR_FIRST);
@@ -76,15 +65,5 @@ impl Parser<'_> {
             self.parse_expr(recovery, |b| b.with_secondary_label(eq_label));
         }
         m.complete(self, SyntaxKind::DefDecl);
-    }
-
-    fn parse_expr(&mut self, recovery: TokenSet, enrich: EnrichTy!()) {
-        if !self.at_expr_start() {
-            self.error_expected_with("expression", recovery, enrich);
-            return;
-        }
-        let m = self.start();
-        self.bump();
-        m.complete(self, SyntaxKind::Expr);
-    }
+    }  
 }

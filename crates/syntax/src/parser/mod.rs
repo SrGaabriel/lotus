@@ -1,6 +1,7 @@
 pub mod marker;
 pub mod root;
 pub mod token_set;
+pub mod expr;
 
 use crate::{
     ResolvedNode,

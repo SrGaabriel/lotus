@@ -48,6 +48,8 @@ pub enum SyntaxKind {
     Name,
     Expr,
     Error,
+    ParenExpr,
+    BraceBlock,
 }
 
 impl SyntaxKind {
