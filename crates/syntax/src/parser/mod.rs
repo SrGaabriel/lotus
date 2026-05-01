@@ -13,7 +13,6 @@ use crate::{
     },
     parser::{
         marker::Marker,
-        root::parse_source_file,
         token_set::TokenSet,
     },
 };
@@ -73,7 +72,7 @@ impl<'input> Parser<'input> {
 
     pub fn parse(mut self) -> Parsed {
         self.builder.start_node(SyntaxKind::Root);
-        parse_source_file(&mut self);
+        self.parse_source_file();
         self.builder.finish_node();
 
         let (green, cache) = self.builder.finish();

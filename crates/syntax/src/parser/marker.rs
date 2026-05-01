@@ -10,7 +10,7 @@ pub struct Marker {
 }
 
 impl Marker {
-    pub(crate) fn new(checkpoint: Checkpoint) -> Self {
+    pub fn new(checkpoint: Checkpoint) -> Self {
         Self {
             checkpoint,
             consumed: false,
