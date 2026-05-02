@@ -132,12 +132,14 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    fn read_while(&mut self, mut pred: impl FnMut(char) -> bool) -> String {
-        let mut result = String::new();
+    fn read_while_to(
+        &mut self,
+        buffer: &mut String,
+        mut pred: impl FnMut(char) -> bool
+    ) {
         while pred(self.first()) && !self.is_eof() {
-            result.push(self.bump().unwrap());
+            buffer.push(self.bump().unwrap());
         }
-        result
     }
 
     fn advance_token(&mut self) -> RawToken {
@@ -158,8 +160,8 @@ impl<'a> Cursor<'a> {
                 TokenKind::DefEq
             }
 
-            c if is_id_start(c) => self.ident(),
-            c if is_op_char(c) => self.op_ident(),
+            c if is_id_start(c) => return self.ident(c),
+            c if is_op_char(c) => return self.op_ident(),
             c if c.is_ascii_digit() => {
                 self.eat_while(|c| c.is_ascii_digit());
                 TokenKind::Number
@@ -219,17 +221,23 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    fn ident(&mut self) -> TokenKind {
-        let ident = self.read_while(is_id_continue);
-        match &*ident {
+    fn ident(&mut self, c: char) -> RawToken {
+        let mut ident = c.to_string();
+        self.read_while_to(&mut ident, is_id_continue);
+        let kind = match &*ident {
             "def" => TokenKind::DefKw,
             _ => TokenKind::Identifier,
-        }
+        };
+        let len = self.pos_in_token();
+        self.reset_pos();
+        RawToken::new(kind, len)
     }
 
-    fn op_ident(&mut self) -> TokenKind {
+    fn op_ident(&mut self) -> RawToken {
         self.eat_while(is_op_char);
-        TokenKind::OpIdentifier
+        let len = self.pos_in_token();
+        self.reset_pos();
+        RawToken::new(TokenKind::OpIdentifier, len)
     }
 }
 

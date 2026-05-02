@@ -1,5 +1,5 @@
 def hello := {}
 
-def foo :=
+def foo := 5
 
 def world := 5
