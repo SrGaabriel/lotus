@@ -40,6 +40,7 @@ pub enum SyntaxKind {
     Unknown,
 
     DefKw,
+    LetKw,
 
     // === Nodes ===
     Root,
@@ -50,6 +51,8 @@ pub enum SyntaxKind {
     Error,
     ParenExpr,
     BraceBlock,
+    LetStmt,
+    MutationStmt,
 }
 
 impl SyntaxKind {
@@ -73,6 +76,7 @@ impl SyntaxKind {
             TokenKind::DefEq => Self::DefEq,
             TokenKind::Unknown => Self::Unknown,
             TokenKind::DefKw => Self::DefKw,
+            TokenKind::LetKw => Self::LetKw,
             TokenKind::Eof => unreachable!("Eof never reaches the syntax tree"),
         }
     }

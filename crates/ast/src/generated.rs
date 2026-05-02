@@ -69,6 +69,115 @@ impl Name {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
+pub struct ParenExpr(ResolvedNode);
+impl AstNode for ParenExpr {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::ParenExpr
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl ParenExpr {
+    pub fn l_paren(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::LParen)
+    }
+    pub fn expr(&self) -> Option<Expr> {
+        child(&self.0)
+    }
+    pub fn r_paren(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::RParen)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct BraceBlock(ResolvedNode);
+impl AstNode for BraceBlock {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::BraceBlock
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl BraceBlock {
+    pub fn l_brace(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::LBrace)
+    }
+    pub fn stmt(&self) -> AstChildren<'_, Stmt> {
+        children(&self.0)
+    }
+    pub fn r_brace(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::RBrace)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct LetStmt(ResolvedNode);
+impl AstNode for LetStmt {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::LetStmt
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl LetStmt {
+    pub fn let_kw(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::LetKw)
+    }
+    pub fn name(&self) -> Option<Name> {
+        child(&self.0)
+    }
+    pub fn def_eq(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::DefEq)
+    }
+    pub fn expr(&self) -> Option<Expr> {
+        child(&self.0)
+    }
+    pub fn semicolon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Semicolon)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct MutationStmt(ResolvedNode);
+impl AstNode for MutationStmt {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::MutationStmt
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl MutationStmt {
+    pub fn name(&self) -> Option<Name> {
+        child(&self.0)
+    }
+    pub fn def_eq(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::DefEq)
+    }
+    pub fn expr(&self) -> Option<Expr> {
+        child(&self.0)
+    }
+    pub fn semicolon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Semicolon)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct NumberLit(ResolvedNode);
 impl AstNode for NumberLit {
     fn can_cast(k: SyntaxKind) -> bool {
@@ -127,14 +236,23 @@ impl AstNode for Decl {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
+    ParenExpr(ParenExpr),
+    BraceBlock(BraceBlock),
     Literal(Literal),
     Name(Name),
 }
 impl AstNode for Expr {
     fn can_cast(k: SyntaxKind) -> bool {
-        Literal::can_cast(k) || Name::can_cast(k)
+        ParenExpr::can_cast(k) || BraceBlock::can_cast(k) || Literal::can_cast(k)
+            || Name::can_cast(k)
     }
     fn cast(node: ResolvedNode) -> Option<Self> {
+        if let Some(it) = ParenExpr::cast(node.clone()) {
+            return Some(Self::ParenExpr(it));
+        }
+        if let Some(it) = BraceBlock::cast(node.clone()) {
+            return Some(Self::BraceBlock(it));
+        }
         if let Some(it) = Literal::cast(node.clone()) {
             return Some(Self::Literal(it));
         }
@@ -145,6 +263,8 @@ impl AstNode for Expr {
     }
     fn syntax(&self) -> &ResolvedNode {
         match self {
+            Self::ParenExpr(it) => it.syntax(),
+            Self::BraceBlock(it) => it.syntax(),
             Self::Literal(it) => it.syntax(),
             Self::Name(it) => it.syntax(),
         }
@@ -172,6 +292,31 @@ impl AstNode for Literal {
         match self {
             Self::NumberLit(it) => it.syntax(),
             Self::StringLit(it) => it.syntax(),
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Stmt {
+    LetStmt(LetStmt),
+    MutationStmt(MutationStmt),
+}
+impl AstNode for Stmt {
+    fn can_cast(k: SyntaxKind) -> bool {
+        LetStmt::can_cast(k) || MutationStmt::can_cast(k)
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        if let Some(it) = LetStmt::cast(node.clone()) {
+            return Some(Self::LetStmt(it));
+        }
+        if let Some(it) = MutationStmt::cast(node.clone()) {
+            return Some(Self::MutationStmt(it));
+        }
+        None
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        match self {
+            Self::LetStmt(it) => it.syntax(),
+            Self::MutationStmt(it) => it.syntax(),
         }
     }
 }

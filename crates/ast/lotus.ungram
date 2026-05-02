@@ -6,8 +6,22 @@ Decl =
 DefDecl = 'def' name:Name ':=' expr:Expr
 
 Expr =
-  Literal
+  ParenExpr
+| BraceBlock
+| Literal
 | Name
+
+ParenExpr = '(' Expr ')'
+
+BraceBlock = '{' Stmt* '}'
+
+Stmt =
+  LetStmt
+| MutationStmt
+
+LetStmt = 'let' name:Name ':=' expr:Expr ';'
+
+MutationStmt = name:Name ':=' expr:Expr ';'
 
 Literal = NumberLit | StringLit
 

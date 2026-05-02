@@ -10,8 +10,10 @@ pub enum TokenKind {
     BlockComment { terminated: bool },
 
     Identifier,
-    DefKw,
     OpIdentifier,
+
+    DefKw,
+    LetKw,
 
     Number,
 
@@ -226,6 +228,7 @@ impl<'a> Cursor<'a> {
         self.read_while_to(&mut ident, is_id_continue);
         let kind = match &*ident {
             "def" => TokenKind::DefKw,
+            "let" => TokenKind::LetKw,
             _ => TokenKind::Identifier,
         };
         let len = self.pos_in_token();

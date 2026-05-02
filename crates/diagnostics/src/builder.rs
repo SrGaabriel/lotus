@@ -13,6 +13,10 @@ macro_rules! EnrichTy {
     };
 }
 
+pub fn conserve() -> impl FnOnce(DiagnosticBuilder) -> DiagnosticBuilder {
+    |b| b
+}
+
 pub struct DiagnosticBuilder {
     pub severity: Severity,
     pub code: Option<&'static str>,
@@ -50,6 +54,11 @@ impl DiagnosticBuilder {
 
     pub fn with_help(mut self, help: String) -> Self {
         self.helps.push(help);
+        self
+    }
+
+    pub fn with_primary_message(mut self, message: impl Into<String>) -> Self {
+        self.primary.message = Some(message.into());
         self
     }
 

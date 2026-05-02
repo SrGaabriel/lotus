@@ -157,6 +157,28 @@ impl<'input> Parser<'input> {
         }
     }
 
+    pub fn has_newline_before(&self, n: usize) -> bool {
+        let mut idx = self.cursor;
+        let mut remaining = n;
+        loop {
+            let Some(tok) = self.tokens.get(idx) else {
+                return false;
+            };
+            if SyntaxKind::from_token(tok.kind).is_trivia() {
+                if tok.text.contains('\n') {
+                    return true;
+                }
+                idx += 1;
+                continue;
+            }
+            if remaining == 0 {
+                return false;
+            }
+            remaining -= 1;
+            idx += 1;
+        }
+    }
+
     fn eat_trivia(&mut self) {
         while let Some(tok) = self.tokens.get(self.cursor).copied() {
             let kind = SyntaxKind::from_token(tok.kind);
@@ -214,6 +236,24 @@ impl<'input> Parser<'input> {
         false
     }
 
+    pub fn expect_semi(&mut self, follow: TokenSet, recovery: TokenSet) -> bool {
+        if self.eat(TokenKind::Semicolon) {
+            return true;
+        }
+        if self.has_newline_before(0) && (self.at(TokenKind::Eof) || self.at_ts(follow)) {
+            self.expected.clear();
+            let prev_end = self.prev_range().map(|r| r.end()).unwrap_or_default();
+            let span = TextRange::empty(prev_end);
+            let mut builder = Diagnostic::builder(Severity::Error, "missing `;`", self.file, span)
+                .with_help("insert `;` at end of statement".into());
+            builder.primary.message = Some("expected `;` here".into());
+            self.diagnostics.push(builder.build());
+            return false;
+        }
+        self.err_recover(recovery);
+        false
+    }
+
     pub fn err_recover(&mut self, recovery: TokenSet) {
         let message = self.expected_message();
         if self.at(TokenKind::Eof) || self.at_ts(recovery) {
@@ -247,6 +287,34 @@ impl<'input> Parser<'input> {
         self.diagnostics.push(diag);
         self.bump();
         self.finish_node();
+    }
+
+    pub fn recover_until_with(
+        &mut self,
+        sync: TokenSet,
+        terminator: Option<TokenKind>,
+        severity: Severity,
+        message: &str,
+        build: impl FnOnce(DiagnosticBuilder) -> DiagnosticBuilder,
+    ) {
+        let start = self.current_range().start();
+        let at_sync = self.at(TokenKind::Eof) || self.at_ts(sync);
+        if !at_sync {
+            self.start_node(SyntaxKind::Error);
+            while !self.at(TokenKind::Eof) && !self.at_ts(sync) {
+                if let Some(t) = terminator
+                    && self.eat(t)
+                {
+                    break;
+                }
+                self.bump();
+            }
+            self.finish_node();
+        }
+        let end = self.prev_range().map(|r| r.end()).unwrap_or(start);
+        let range = TextRange::new(start, end.max(start));
+        let builder = Diagnostic::builder(severity, message, self.file, range);
+        self.diagnostics.push(build(builder).build());
     }
 
     pub fn recover_until(&mut self, recovery: TokenSet) -> bool {

@@ -3,3 +3,9 @@ def hello := {}
 def foo := 5
 
 def world := 5
+
+def stmts := {
+    let x := 5;
+    let y := 10;
+    x := 10;
+}
