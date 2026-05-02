@@ -242,7 +242,7 @@ impl<'input> Parser<'input> {
         }
         if self.has_newline_before(0) && (self.at(TokenKind::Eof) || self.at_ts(follow)) {
             self.expected.clear();
-            let prev_end = self.prev_range().map(|r| r.end()).unwrap_or_default();
+            let prev_end = self.prev_range().map(TextRange::end).unwrap_or_default();
             let span = TextRange::empty(prev_end);
             let mut builder = Diagnostic::builder(Severity::Error, "missing `;`", self.file, span)
                 .with_help("insert `;` at end of statement".into());
@@ -311,7 +311,7 @@ impl<'input> Parser<'input> {
             }
             self.finish_node();
         }
-        let end = self.prev_range().map(|r| r.end()).unwrap_or(start);
+        let end = self.prev_range().map_or(start, TextRange::end);
         let range = TextRange::new(start, end.max(start));
         let builder = Diagnostic::builder(severity, message, self.file, range);
         self.diagnostics.push(build(builder).build());

@@ -134,11 +134,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    fn read_while_to(
-        &mut self,
-        buffer: &mut String,
-        mut pred: impl FnMut(char) -> bool
-    ) {
+    fn read_while_to(&mut self, buffer: &mut String, mut pred: impl FnMut(char) -> bool) {
         while pred(self.first()) && !self.is_eof() {
             buffer.push(self.bump().unwrap());
         }

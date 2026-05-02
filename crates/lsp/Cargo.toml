@@ -1,17 +1,17 @@
 [package]
 name = "lopus"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-authors.workspace = true
 
 [dependencies]
 ast.workspace = true
-syntax.workspace = true
 elaborator.workspace = true
-tower-lsp.workspace = true
+syntax.workspace = true
 tokio.workspace = true
+tower-lsp.workspace = true
 
 [lints]
 workspace = true

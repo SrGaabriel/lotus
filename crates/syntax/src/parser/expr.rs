@@ -112,7 +112,9 @@ impl Parser<'_> {
             return;
         }
         let eq_label = self.label(self.prev_range().unwrap(), "`:=` here");
-        self.parse_expr(recovery.union(SEMI_SET), |b| b.with_secondary_label(eq_label));
+        self.parse_expr(recovery.union(SEMI_SET), |b| {
+            b.with_secondary_label(eq_label)
+        });
         self.expect_semi(SEMI_FOLLOW, recovery);
         m.complete(self, kind);
     }

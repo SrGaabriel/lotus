@@ -12,6 +12,8 @@ db.workspace = true
 diagnostics.workspace = true
 salsa.workspace = true
 structure.workspace = true
+la-arena.workspace = true
+rustc-hash.workspace = true
 
 [lints]
 workspace = true
