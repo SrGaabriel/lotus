@@ -10,6 +10,7 @@ pub enum TokenKind {
     BlockComment { terminated: bool },
 
     Identifier,
+    DefKw,
     OpIdentifier,
 
     Number,
@@ -131,6 +132,14 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    fn read_while(&mut self, mut pred: impl FnMut(char) -> bool) -> String {
+        let mut result = String::new();
+        while pred(self.first()) && !self.is_eof() {
+            result.push(self.bump().unwrap());
+        }
+        result
+    }
+
     fn advance_token(&mut self) -> RawToken {
         let Some(c) = self.bump() else {
             return RawToken::new(TokenKind::Eof, 0);
@@ -211,8 +220,11 @@ impl<'a> Cursor<'a> {
     }
 
     fn ident(&mut self) -> TokenKind {
-        self.eat_while(is_id_continue);
-        TokenKind::Identifier
+        let ident = self.read_while(is_id_continue);
+        match &*ident {
+            "def" => TokenKind::DefKw,
+            _ => TokenKind::Identifier,
+        }
     }
 
     fn op_ident(&mut self) -> TokenKind {

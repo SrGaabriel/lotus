@@ -30,15 +30,18 @@ fn main() -> anyhow::Result<()> {
         let path = file.path(compiler.db()).clone();
         info!("Processing file: {}", path.display());
         let parse = compiler.parse(file);
+        let root = parse.syntax_node();
+        println!("Syntax tree: {root:#?}");
+
         let diagnostics = compiler.diagnostics(file);
-        if !diagnostics.is_empty() {
+        if diagnostics.is_empty() {
+            println!("No diagnostics found!");
+        } else {
             println!("Found {} diagnostics:", diagnostics.len());
             for diagnostic in &diagnostics {
                 render(&mut cache, diagnostic);
             }
         }
-        let text: String = parse.syntax_node().text().to_string();
-        println!("Parsed syntax node text:\n\n{text}");
     }
     Ok(())
 }

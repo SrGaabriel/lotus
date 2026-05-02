@@ -5,7 +5,6 @@ use crate::{
     lexer::TokenKind,
     parser::{
         Parser,
-        root::is_contextual_kw,
         token_set::TokenSet,
     },
 };
@@ -25,10 +24,7 @@ pub const EXPR_RECOVERY: TokenSet = TokenSet::new(&[
 
 impl Parser<'_> {
     pub fn at_expr_start(&self) -> bool {
-        if !self.at_ts(EXPR_FIRST) {
-            return false;
-        }
-        !(self.current() == TokenKind::Identifier && is_contextual_kw(self.current_text()))
+        self.at_ts(EXPR_FIRST)
     }
 
     pub fn parse_expr(&mut self, recovery: TokenSet, enrich: EnrichTy!()) {

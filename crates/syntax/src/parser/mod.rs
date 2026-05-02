@@ -1,7 +1,7 @@
+pub mod expr;
 pub mod marker;
 pub mod root;
 pub mod token_set;
-pub mod expr;
 
 use crate::{
     ResolvedNode,
@@ -112,6 +112,10 @@ impl<'input> Parser<'input> {
 
     pub fn nth(&self, n: usize) -> TokenKind {
         self.peek_nth(n).map_or(TokenKind::Eof, |t| t.kind)
+    }
+
+    pub fn check_at(&self, kind: TokenKind) -> bool {
+        self.current() == kind
     }
 
     pub fn at(&mut self, kind: TokenKind) -> bool {

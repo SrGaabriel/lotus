@@ -72,6 +72,7 @@ impl SyntaxKind {
             TokenKind::Dot => Self::Dot,
             TokenKind::DefEq => Self::DefEq,
             TokenKind::Unknown => Self::Unknown,
+            TokenKind::DefKw => Self::DefKw,
             TokenKind::Eof => unreachable!("Eof never reaches the syntax tree"),
         }
     }

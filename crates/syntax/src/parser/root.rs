@@ -2,22 +2,18 @@ use super::token_set::TokenSet;
 use crate::{
     kind::SyntaxKind,
     lexer::TokenKind,
-    parser::{Parser, expr::EXPR_FIRST},
+    parser::{
+        Parser,
+        expr::EXPR_FIRST,
+    },
 };
 
-pub const DECL_FIRST: TokenSet = TokenSet::new(&[TokenKind::Identifier]);
-
-pub fn is_contextual_kw(text: &str) -> bool {
-    matches!(text, "def")
-}
+pub const DECL_FIRST: TokenSet = TokenSet::new(&[TokenKind::DefKw]);
 
 impl Parser<'_> {
-    pub fn at_kw(&self, kw: &str) -> bool {
-        self.current() == TokenKind::Identifier && self.current_text() == kw
-    }
-
     pub fn at_decl_start(&self) -> bool {
-        self.at_kw("def")
+        let kind = self.current();
+        DECL_FIRST.contains(kind)
     }
 
     pub fn parse_source_file(&mut self) {
@@ -65,5 +61,5 @@ impl Parser<'_> {
             self.parse_expr(recovery, |b| b.with_secondary_label(eq_label));
         }
         m.complete(self, SyntaxKind::DefDecl);
-    }  
+    }
 }
