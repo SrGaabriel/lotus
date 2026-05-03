@@ -1,5 +1,5 @@
 use crate::ids::{
-    DefId,
+    ItemId,
     Unique,
 };
 
@@ -30,7 +30,7 @@ pub enum Term<'db> {
     MVar(Unique),
     App(TermId, TermId),
     Sort(LevelId),
-    Const(DefId<'db>),
+    Const(ItemId<'db>),
     Lam(BinderInfo, TermId, TermId),
     Pi(BinderInfo, TermId, TermId),
     Sigma(BinderInfo, TermId, TermId),

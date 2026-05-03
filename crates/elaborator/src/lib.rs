@@ -10,31 +10,50 @@ use db::SourceFile;
 
 pub use crate::{
     elab::{
-        elaborate_def,
+        elaborate_decl,
         elaborate_file,
     },
-    env::Body,
+    env::{
+        DefBody,
+        Signature,
+    },
+    ids::{
+        ItemId,
+        ItemKind,
+    },
 };
 use crate::{
     env::{
         ItemTree,
         Namespace,
     },
-    ids::{
-        DefId,
-        Symbol,
-    },
+    ids::Symbol,
 };
 
 pub struct ElaboratedFile<'db> {
     pub namespace: Namespace<'db>,
-    pub defs: Vec<(DefId<'db>, &'db Body<'db>)>,
+    pub items: Vec<ElaboratedItem<'db>>,
+}
+
+pub struct ElaboratedItem<'db> {
+    pub id: ItemId<'db>,
+    pub signature: &'db Signature<'db>,
+    pub def_body: Option<&'db DefBody<'db>>,
 }
 
 impl Debug for ElaboratedFile<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ElaboratedFile")
-            .field("defs", &self.defs)
+            .field("items", &self.items.len())
+            .finish()
+    }
+}
+
+impl Debug for ElaboratedItem<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ElaboratedItem")
+            .field("signature", &self.signature)
+            .field("def_body", &self.def_body)
             .finish()
     }
 }
@@ -51,7 +70,9 @@ pub trait ElabDb<'db> {
     fn intern_symbol(self, text: &str) -> Symbol<'db>;
     fn item_tree(self, file: SourceFile) -> ItemTree<'db>;
     fn def_map(self, file: SourceFile) -> Namespace<'db>;
-    fn elaborate_def(self, def: DefId<'db>) -> &'db Body<'db>;
+    fn signature(self, item: ItemId<'db>) -> &'db Signature<'db>;
+    fn def_body(self, item: ItemId<'db>) -> &'db DefBody<'db>;
+    fn elaborate_decl(self, item: ItemId<'db>);
     fn elaborate_file(self, file: SourceFile);
     fn dbg_elaborate_file(self, file: SourceFile) -> ElaboratedFile<'db>;
 }
@@ -69,8 +90,16 @@ impl<'db> ElabDb<'db> for Db<'db> {
         env::def_map::def_map(self, file)
     }
 
-    fn elaborate_def(self, def: DefId<'db>) -> &'db Body<'db> {
-        elab::elaborate_def(self, def)
+    fn signature(self, item: ItemId<'db>) -> &'db Signature<'db> {
+        env::signature::signature(self, item)
+    }
+
+    fn def_body(self, item: ItemId<'db>) -> &'db DefBody<'db> {
+        elab::def::def_body(self, item)
+    }
+
+    fn elaborate_decl(self, item: ItemId<'db>) {
+        elab::elaborate_decl(self, item);
     }
 
     fn elaborate_file(self, file: SourceFile) {
@@ -79,12 +108,22 @@ impl<'db> ElabDb<'db> for Db<'db> {
 
     fn dbg_elaborate_file(self, file: SourceFile) -> ElaboratedFile<'db> {
         let namespace = self.def_map(file);
-        let defs = namespace
+        let items = namespace
             .decls(self)
             .values()
-            .map(|def| (*def, self.elaborate_def(*def)))
+            .map(|&id| {
+                let signature = self.signature(id);
+                let def_body = match id.kind(self) {
+                    ItemKind::Def => Some(self.def_body(id)),
+                };
+                ElaboratedItem {
+                    id,
+                    signature,
+                    def_body,
+                }
+            })
             .collect();
-        ElaboratedFile { namespace, defs }
+        ElaboratedFile { namespace, items }
     }
 }
 

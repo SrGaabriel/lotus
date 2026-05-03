@@ -44,7 +44,7 @@ pub enum ItemKind {
 }
 
 #[salsa::tracked(debug)]
-pub struct DefId<'db> {
+pub struct ItemId<'db> {
     pub file: SourceFile,
     pub name: Symbol<'db>,
     pub ast_index: u32,

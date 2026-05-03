@@ -6,6 +6,7 @@ use std::fmt::{
 use crate::{
     Db,
     ElaboratedFile,
+    ElaboratedItem,
     core::{
         BinderInfo,
         Level,
@@ -15,8 +16,6 @@ use crate::{
         TermArena,
         TermId,
     },
-    env::Body,
-    ids::DefId,
 };
 
 pub fn debug_file(db: Db<'_>, file: &ElaboratedFile<'_>) -> String {
@@ -26,30 +25,27 @@ pub fn debug_file(db: Db<'_>, file: &ElaboratedFile<'_>) -> String {
 }
 
 pub fn write_file(out: &mut dyn Write, db: Db<'_>, file: &ElaboratedFile<'_>) -> fmt::Result {
-    writeln!(out, "elaborated module ({} defs)", file.defs.len())?;
-    for (def, body) in &file.defs {
+    writeln!(out, "elaborated module ({} items)", file.items.len())?;
+    for item in &file.items {
         writeln!(out)?;
-        write_def(out, db, *def, body)?;
+        write_item(out, db, item)?;
     }
     Ok(())
 }
 
-fn write_def(out: &mut dyn Write, db: Db<'_>, def: DefId<'_>, body: &Body<'_>) -> fmt::Result {
-    let name = def.name(db).text(db);
-    writeln!(out, "def {name} [#{}]", def.ast_index(db))?;
+fn write_item(out: &mut dyn Write, db: Db<'_>, item: &ElaboratedItem<'_>) -> fmt::Result {
+    let name = item.id.name(db).text(db);
+    let kind = item.id.kind(db);
+    writeln!(out, "{kind:?} {name} [#{}]", item.id.ast_index(db))?;
 
-    if let Some(ty) = body.ty {
-        write!(out, "  : ")?;
-        write_term(out, db, &body.arena, ty, 0)?;
-        writeln!(out)?;
-    }
-    if let Some(val) = body.value {
+    write!(out, "  : ")?;
+    write_term(out, db, &item.signature.arena, item.signature.ty, 0)?;
+    writeln!(out)?;
+
+    if let Some(body) = item.def_body {
         write!(out, "  := ")?;
-        write_term(out, db, &body.arena, val, 0)?;
+        write_term(out, db, &body.arena, body.value, 0)?;
         writeln!(out)?;
-    }
-    if body.ty.is_none() && body.value.is_none() {
-        writeln!(out, "  <empty body>")?;
     }
     Ok(())
 }

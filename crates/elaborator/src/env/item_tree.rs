@@ -4,7 +4,7 @@ use db::SourceFile;
 use crate::{
     ElabDatabase,
     ids::{
-        DefId,
+        ItemId,
         ItemKind,
         Symbol,
     },
@@ -14,7 +14,7 @@ use crate::{
 pub struct ItemTree<'db> {
     #[tracked]
     #[returns(ref)]
-    pub items: Vec<DefId<'db>>,
+    pub items: Vec<ItemId<'db>>,
 }
 
 #[salsa::tracked]
@@ -32,7 +32,7 @@ pub fn item_tree(db: &dyn ElabDatabase, file: SourceFile) -> ItemTree<'_> {
             continue;
         };
         let symbol = Symbol::from_str(db, ident.text());
-        items.push(DefId::new(db, file, symbol, i as u32, ItemKind::Def));
+        items.push(ItemId::new(db, file, symbol, i as u32, ItemKind::Def));
     }
 
     ItemTree::new(db, items)
