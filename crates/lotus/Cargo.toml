@@ -11,6 +11,7 @@ anyhow.workspace = true
 clap.workspace = true
 diagnostics.workspace = true
 driver.workspace = true
+elaborator.workspace = true
 structure.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

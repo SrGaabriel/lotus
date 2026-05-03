@@ -3,6 +3,8 @@ pub mod elab;
 pub mod env;
 pub mod ids;
 
+use std::fmt::Debug;
+
 use ast::AstDatabase;
 use db::SourceFile;
 
@@ -24,6 +26,19 @@ use crate::{
     },
 };
 
+pub struct ElaboratedFile<'db> {
+    pub namespace: Namespace<'db>,
+    pub defs: Vec<(DefId<'db>, &'db Body<'db>)>,
+}
+
+impl Debug for ElaboratedFile<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ElaboratedFile")
+            .field("defs", &self.defs)
+            .finish()
+    }
+}
+
 #[salsa::db]
 pub trait ElabDatabase: AstDatabase {}
 
@@ -38,6 +53,7 @@ pub trait ElabDb<'db> {
     fn def_map(self, file: SourceFile) -> Namespace<'db>;
     fn elaborate_def(self, def: DefId<'db>) -> &'db Body<'db>;
     fn elaborate_file(self, file: SourceFile);
+    fn dbg_elaborate_file(self, file: SourceFile) -> ElaboratedFile<'db>;
 }
 
 impl<'db> ElabDb<'db> for Db<'db> {
@@ -59,6 +75,16 @@ impl<'db> ElabDb<'db> for Db<'db> {
 
     fn elaborate_file(self, file: SourceFile) {
         elab::elaborate_file(self, file);
+    }
+
+    fn dbg_elaborate_file(self, file: SourceFile) -> ElaboratedFile<'db> {
+        let namespace = self.def_map(file);
+        let defs = namespace
+            .decls(self)
+            .values()
+            .map(|def| (*def, self.elaborate_def(*def)))
+            .collect();
+        ElaboratedFile { namespace, defs }
     }
 }
 

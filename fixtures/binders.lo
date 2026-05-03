@@ -1,0 +1,1 @@
+def f (x : T) {y : T} [z : T] : T := x

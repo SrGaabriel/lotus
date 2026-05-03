@@ -30,7 +30,6 @@ use cstree::{
 use db::SourceFile;
 use diagnostics::{
     Diagnostic,
-    EnrichTy,
     Label,
     Severity,
     builder::DiagnosticBuilder,
@@ -50,6 +49,11 @@ impl Parsed {
     }
 }
 
+pub enum Decoration {
+    SecondaryLabel(Label),
+    Help(String),
+}
+
 pub struct Parser<'input> {
     file: SourceFile,
     tokens: Vec<Token<'input>>,
@@ -57,6 +61,7 @@ pub struct Parser<'input> {
     builder: GreenNodeBuilder<'static, 'static, SyntaxKind>,
     diagnostics: Vec<Diagnostic>,
     expected: Vec<TokenKind>,
+    decorations: Vec<Decoration>,
 }
 
 impl<'input> Parser<'input> {
@@ -68,13 +73,12 @@ impl<'input> Parser<'input> {
             builder: GreenNodeBuilder::new(),
             diagnostics: Vec::new(),
             expected: Vec::new(),
+            decorations: Vec::new(),
         }
     }
 
     pub fn parse(mut self) -> Parsed {
-        self.builder.start_node(SyntaxKind::Root);
         self.parse_source_file();
-        self.builder.finish_node();
 
         let (green, cache) = self.builder.finish();
         let interner = cache.unwrap().into_interner().unwrap();
@@ -228,6 +232,30 @@ impl<'input> Parser<'input> {
         }
     }
 
+    pub fn with_label<R>(&mut self, label: Label, f: impl FnOnce(&mut Self) -> R) -> R {
+        self.decorations.push(Decoration::SecondaryLabel(label));
+        let r = f(self);
+        self.decorations.pop();
+        r
+    }
+
+    pub fn with_help<R>(&mut self, help: impl Into<String>, f: impl FnOnce(&mut Self) -> R) -> R {
+        self.decorations.push(Decoration::Help(help.into()));
+        let r = f(self);
+        self.decorations.pop();
+        r
+    }
+
+    fn finish_diag(&self, mut b: DiagnosticBuilder) -> Diagnostic {
+        for dec in &self.decorations {
+            b = match dec {
+                Decoration::SecondaryLabel(l) => b.with_secondary_label(l.clone()),
+                Decoration::Help(s) => b.with_help(s.clone()),
+            };
+        }
+        b.build()
+    }
+
     pub fn expect_recover(&mut self, kind: TokenKind, recovery: TokenSet) -> bool {
         if self.eat(kind) {
             return true;
@@ -247,7 +275,8 @@ impl<'input> Parser<'input> {
             let mut builder = Diagnostic::builder(Severity::Error, "missing `;`", self.file, span)
                 .with_help("insert `;` at end of statement".into());
             builder.primary.message = Some("expected `;` here".into());
-            self.diagnostics.push(builder.build());
+            let diag = self.finish_diag(builder);
+            self.diagnostics.push(diag);
             return false;
         }
         self.err_recover(recovery);
@@ -256,27 +285,25 @@ impl<'input> Parser<'input> {
 
     pub fn err_recover(&mut self, recovery: TokenSet) {
         let message = self.expected_message();
+        let builder =
+            Diagnostic::builder(Severity::Error, &message, self.file, self.current_range());
+        let diag = self.finish_diag(builder);
+        self.diagnostics.push(diag);
         if self.at(TokenKind::Eof) || self.at_ts(recovery) {
-            self.error(&message);
             return;
         }
         self.start_node(SyntaxKind::Error);
-        self.error(&message);
         self.bump();
         self.finish_node();
     }
 
     pub fn error_expected(&mut self, what: &str, recovery: TokenSet) {
-        self.error_expected_with(what, recovery, |b| b);
-    }
-
-    pub fn error_expected_with(&mut self, what: &str, recovery: TokenSet, enrich: EnrichTy!()) {
         let found = self.current();
         let range = self.current_range();
         let msg = format!("expected {what}, found {found:?}");
         let mut builder = Diagnostic::builder(Severity::Error, &msg, self.file, range);
         builder.primary.message = Some(format!("this is not a valid {what}"));
-        let diag = enrich(builder).build();
+        let diag = self.finish_diag(builder);
         self.expected.clear();
 
         if self.at(TokenKind::Eof) || self.at_ts(recovery) {
@@ -360,9 +387,10 @@ impl<'input> Parser<'input> {
     }
 
     pub fn error(&mut self, message: &str) {
-        let range = self.current_range();
-        self.diagnostics
-            .push(Diagnostic::error(message, self.file, range).build());
+        let builder =
+            Diagnostic::builder(Severity::Error, message, self.file, self.current_range());
+        let diag = self.finish_diag(builder);
+        self.diagnostics.push(diag);
     }
 
     pub fn error_and_bump(&mut self, message: &str) {
@@ -376,19 +404,19 @@ impl<'input> Parser<'input> {
         let found = self.current();
         let mut expected = std::mem::take(&mut self.expected);
         if expected.is_empty() {
-            return format!("unexpected {found:?}");
+            return format!("unexpected {}", found.reference());
         }
         expected.sort_by_key(|k| k.as_index());
-        let parts: Vec<String> = expected.iter().map(|k| format!("{k:?}")).collect();
+        let parts: Vec<&str> = expected.iter().map(|k| k.reference()).collect();
         let list = match parts.as_slice() {
-            [single] => single.clone(),
+            [single] => single.to_string(),
             [a, b] => format!("{a} or {b}"),
             rest => {
                 let (last, init) = rest.split_last().unwrap();
                 format!("{}, or {last}", init.join(", "))
             }
         };
-        format!("expected {list}, found {found:?}")
+        format!("expected {list}, found {}", found.reference())
     }
 
     pub fn current_range(&self) -> TextRange {

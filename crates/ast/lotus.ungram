@@ -1,30 +1,53 @@
-SourceFile = Decl*
+SourceFile =
+  Decl*
 
 Decl =
   DefDecl
 
-DefDecl = 'def' name:Name ':=' expr:Expr
+DefDecl =
+  'def' name:Name params:Binder* ':' return_type:Type ':=' body:Expr
 
 Expr =
-  ParenExpr
-| BraceBlock
-| Literal
-| Name
+  ParenExpr | BraceBlock | Literal | Name
 
-ParenExpr = '(' Expr ')'
+ParenExpr =
+  '(' Expr ')'
 
-BraceBlock = '{' Stmt* '}'
+BraceBlock =
+  '{' Stmt* '}'
 
 Stmt =
-  LetStmt
-| MutationStmt
+  LetStmt | MutationStmt
 
-LetStmt = 'let' name:Name ':=' expr:Expr ';'
+LetStmt =
+  'let' name:Name ':=' expr:Expr ';'
 
-MutationStmt = name:Name ':=' expr:Expr ';'
+MutationStmt =
+  name:Name ':=' expr:Expr ';'
 
-Literal = NumberLit | StringLit
+Literal =
+  NumberLit | StringLit
 
-Name = 'ident'
-NumberLit = 'number_lit'
-StringLit = 'string_lit'
+Binder =
+  ParenBinder | BraceBinder | BracketBinder
+
+ParenBinder =
+  '(' name:Name ':' type:Type ')'
+
+BraceBinder =
+  '{' name:Name ':' type:Type '}'
+
+BracketBinder =
+  '[' name:Name ':' type:Type ']'
+
+Type =
+  Name
+
+Name =
+  'ident'
+
+NumberLit =
+  'number_lit'
+
+StringLit =
+  'string_lit'

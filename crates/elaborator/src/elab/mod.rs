@@ -25,7 +25,7 @@ pub fn elaborate_def<'db>(db: &'db dyn ElabDatabase, def: DefId<'db>) -> Body<'d
     let mut arena = TermArena::new();
     let mut _gen = UniqueGen::new();
 
-    let value = decl.expr().map(|_expr| arena.type0());
+    let value = decl.body().map(|_expr| arena.type0());
 
     Body {
         arena,

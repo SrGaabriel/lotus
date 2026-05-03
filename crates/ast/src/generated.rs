@@ -41,10 +41,19 @@ impl DefDecl {
     pub fn name(&self) -> Option<Name> {
         child(&self.0)
     }
+    pub fn params(&self) -> AstChildren<'_, Binder> {
+        children(&self.0)
+    }
+    pub fn colon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Colon)
+    }
+    pub fn return_type(&self) -> Option<Type> {
+        child(&self.0)
+    }
     pub fn def_eq(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::DefEq)
     }
-    pub fn expr(&self) -> Option<Expr> {
+    pub fn body(&self) -> Option<Expr> {
         child(&self.0)
     }
 }
@@ -215,6 +224,99 @@ impl StringLit {
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct ParenBinder(ResolvedNode);
+impl AstNode for ParenBinder {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::ParenBinder
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl ParenBinder {
+    pub fn l_paren(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::LParen)
+    }
+    pub fn name(&self) -> Option<Name> {
+        child(&self.0)
+    }
+    pub fn colon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Colon)
+    }
+    pub fn r#type(&self) -> Option<Type> {
+        child(&self.0)
+    }
+    pub fn r_paren(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::RParen)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct BraceBinder(ResolvedNode);
+impl AstNode for BraceBinder {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::BraceBinder
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl BraceBinder {
+    pub fn l_brace(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::LBrace)
+    }
+    pub fn name(&self) -> Option<Name> {
+        child(&self.0)
+    }
+    pub fn colon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Colon)
+    }
+    pub fn r#type(&self) -> Option<Type> {
+        child(&self.0)
+    }
+    pub fn r_brace(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::RBrace)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct BracketBinder(ResolvedNode);
+impl AstNode for BracketBinder {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::BracketBinder
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl BracketBinder {
+    pub fn l_bracket(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::LBracket)
+    }
+    pub fn name(&self) -> Option<Name> {
+        child(&self.0)
+    }
+    pub fn colon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Colon)
+    }
+    pub fn r#type(&self) -> Option<Type> {
+        child(&self.0)
+    }
+    pub fn r_bracket(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::RBracket)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Decl {
     DefDecl(DefDecl),
 }
@@ -231,6 +333,57 @@ impl AstNode for Decl {
     fn syntax(&self) -> &ResolvedNode {
         match self {
             Self::DefDecl(it) => it.syntax(),
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Binder {
+    ParenBinder(ParenBinder),
+    BraceBinder(BraceBinder),
+    BracketBinder(BracketBinder),
+}
+impl AstNode for Binder {
+    fn can_cast(k: SyntaxKind) -> bool {
+        ParenBinder::can_cast(k) || BraceBinder::can_cast(k)
+            || BracketBinder::can_cast(k)
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        if let Some(it) = ParenBinder::cast(node.clone()) {
+            return Some(Self::ParenBinder(it));
+        }
+        if let Some(it) = BraceBinder::cast(node.clone()) {
+            return Some(Self::BraceBinder(it));
+        }
+        if let Some(it) = BracketBinder::cast(node.clone()) {
+            return Some(Self::BracketBinder(it));
+        }
+        None
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        match self {
+            Self::ParenBinder(it) => it.syntax(),
+            Self::BraceBinder(it) => it.syntax(),
+            Self::BracketBinder(it) => it.syntax(),
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Type {
+    Name(Name),
+}
+impl AstNode for Type {
+    fn can_cast(k: SyntaxKind) -> bool {
+        Name::can_cast(k)
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        if let Some(it) = Name::cast(node.clone()) {
+            return Some(Self::Name(it));
+        }
+        None
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        match self {
+            Self::Name(it) => it.syntax(),
         }
     }
 }

@@ -1,9 +1,13 @@
-use clap::Parser;
+use clap::{
+    Parser,
+    Subcommand,
+};
 use diagnostics::{
     files::FilesCache,
     render::render,
 };
 use driver::Compiler;
+use elaborator::core::debug::debug_file;
 use std::path::PathBuf;
 use structure::Program;
 use tracing::info;
@@ -11,13 +15,28 @@ use tracing::info;
 #[derive(Parser, Debug)]
 #[command(name = "lotus", version, about, long_about = None)]
 struct Cli {
-    source: PathBuf,
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    Parse { source: PathBuf },
+    Elaborate { source: PathBuf },
+}
+
+impl Cli {
+    fn file(&self) -> &PathBuf {
+        match &self.command {
+            Commands::Parse { source } | Commands::Elaborate { source } => source,
+        }
+    }
 }
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let cli = Cli::parse();
-    let program = Program::from_path(cli.source, None)?;
+    let program = Program::from_path(cli.file().clone(), None)?;
 
     let mut compiler = Compiler::new();
     let root = compiler.ingest_program(program)?;
@@ -29,9 +48,18 @@ fn main() -> anyhow::Result<()> {
     for file in files {
         let path = file.path(compiler.db()).clone();
         info!("Processing file: {}", path.display());
-        let parse = compiler.parse(file);
-        let root = parse.syntax_node();
-        println!("Syntax tree: {root:#?}");
+        match cli.command {
+            Commands::Parse { .. } => {
+                let parse = compiler.parse(file);
+                let root = parse.syntax_node();
+                println!("Syntax tree: {root:#?}");
+            }
+            Commands::Elaborate { .. } => {
+                let elaborated = compiler.dbg_elaborate(file);
+                let debug = debug_file(compiler.db(), &elaborated);
+                println!("Elaborated file: {debug}");
+            }
+        }
 
         let diagnostics = compiler.diagnostics(file);
         if diagnostics.is_empty() {

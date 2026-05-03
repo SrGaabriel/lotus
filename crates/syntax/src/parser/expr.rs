@@ -1,8 +1,4 @@
-use diagnostics::{
-    EnrichTy,
-    Severity,
-    builder::conserve,
-};
+use diagnostics::Severity;
 
 use crate::{
     kind::SyntaxKind,
@@ -31,37 +27,46 @@ pub const STMT_SYNC: TokenSet =
 const SEMI_FOLLOW: TokenSet = STMT_FIRST.union(TokenSet::new(&[TokenKind::RBrace]));
 const SEMI_SET: TokenSet = TokenSet::new(&[TokenKind::Semicolon]);
 
+pub const BINDER_FIRST: TokenSet =
+    TokenSet::new(&[TokenKind::LParen, TokenKind::LBrace, TokenKind::LBracket]);
+pub const BINDER_RECOVERY: TokenSet = TokenSet::new(&[
+    TokenKind::RParen,
+    TokenKind::RBrace,
+    TokenKind::RBracket,
+    TokenKind::Eof,
+]);
+
 impl Parser<'_> {
     pub fn at_expr_start(&self) -> bool {
         self.at_ts(EXPR_FIRST)
     }
 
-    pub fn parse_expr(&mut self, recovery: TokenSet, enrich: EnrichTy!()) {
+    pub fn parse_expr(&mut self, recovery: TokenSet) {
         if !self.at_expr_start() {
-            self.error_expected_with("expression", recovery, enrich);
+            self.error_expected("expression", recovery);
             return;
         }
         match self.current() {
-            TokenKind::Identifier => self.parse_name_expr(recovery, conserve()),
-            TokenKind::Number => self.parse_number_expr(recovery, conserve()),
-            TokenKind::LParen => self.parse_paren_expr(recovery, conserve()),
-            TokenKind::LBrace => self.parse_brace_block(recovery, conserve()),
+            TokenKind::Identifier => self.parse_name_expr(recovery),
+            TokenKind::Number => self.parse_number_expr(recovery),
+            TokenKind::LParen => self.parse_paren_expr(recovery),
+            TokenKind::LBrace => self.parse_brace_block(recovery),
             _ => unreachable!(),
         }
     }
 
-    pub fn parse_paren_expr(&mut self, recovery: TokenSet, enrich: EnrichTy!()) {
+    pub fn parse_paren_expr(&mut self, recovery: TokenSet) {
         let m = self.start();
         let inner = recovery.union(EXPR_RECOVERY);
         self.expect_recover(TokenKind::LParen, inner);
         if !self.at(TokenKind::RParen) {
-            self.parse_expr(inner, enrich);
+            self.parse_expr(inner);
         }
         self.expect_recover(TokenKind::RParen, inner);
         m.complete(self, SyntaxKind::ParenExpr);
     }
 
-    pub fn parse_brace_block(&mut self, recovery: TokenSet, _enrich: EnrichTy!()) {
+    pub fn parse_brace_block(&mut self, recovery: TokenSet) {
         let m = self.start();
         let inner = recovery.union(EXPR_RECOVERY).union(STMT_FIRST);
         self.expect_recover(TokenKind::LBrace, inner);
@@ -112,22 +117,66 @@ impl Parser<'_> {
             return;
         }
         let eq_label = self.label(self.prev_range().unwrap(), "`:=` here");
-        self.parse_expr(recovery.union(SEMI_SET), |b| {
-            b.with_secondary_label(eq_label)
-        });
+        self.with_label(eq_label, |p| p.parse_expr(recovery.union(SEMI_SET)));
         self.expect_semi(SEMI_FOLLOW, recovery);
         m.complete(self, kind);
     }
 
-    pub fn parse_name_expr(&mut self, recovery: TokenSet, _enrich: EnrichTy!()) {
+    pub fn parse_name_expr(&mut self, recovery: TokenSet) {
         let m = self.start();
         self.expect_recover(TokenKind::Identifier, recovery);
         m.complete(self, SyntaxKind::Name);
     }
 
-    pub fn parse_number_expr(&mut self, recovery: TokenSet, _enrich: EnrichTy!()) {
+    pub fn parse_number_expr(&mut self, recovery: TokenSet) {
         let m = self.start();
         self.expect_recover(TokenKind::Number, recovery);
         m.complete(self, SyntaxKind::NumberLit);
+    }
+
+    pub fn parse_binder(&mut self, recovery: TokenSet) {
+        let m = self.start();
+        let inner = recovery.union(BINDER_RECOVERY);
+        let (open, close, kind) = match self.current() {
+            TokenKind::LParen => (
+                TokenKind::LParen,
+                TokenKind::RParen,
+                SyntaxKind::ParenBinder,
+            ),
+            TokenKind::LBrace => (
+                TokenKind::LBrace,
+                TokenKind::RBrace,
+                SyntaxKind::BraceBinder,
+            ),
+            TokenKind::LBracket => (
+                TokenKind::LBracket,
+                TokenKind::RBracket,
+                SyntaxKind::BracketBinder,
+            ),
+            _ => unreachable!(),
+        };
+        self.expect_recover(open, inner);
+        if !self.at(close) {
+            let name = self.start();
+            if self.expect_recover(TokenKind::Identifier, inner) {
+                name.complete(self, SyntaxKind::Name);
+            } else {
+                name.abandon(self);
+                m.complete(self, kind);
+                return;
+            }
+            if self.expect_recover(TokenKind::Colon, inner) {
+                let colon_label = self.label(self.prev_range().unwrap(), "`:` here");
+                self.with_label(colon_label, |p| p.parse_type(inner));
+            }
+        }
+        self.expect_recover(close, inner);
+        m.complete(self, kind);
+    }
+
+    pub fn parse_type(&mut self, recovery: TokenSet) {
+        let m = self.start();
+        self.expect_recover(TokenKind::Identifier, recovery);
+        m.complete(self, SyntaxKind::Type);
     }
 }

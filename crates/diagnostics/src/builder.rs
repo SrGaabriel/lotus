@@ -6,17 +6,7 @@ use crate::{
 use db::SourceFile;
 use text_size::TextRange;
 
-#[macro_export]
-macro_rules! EnrichTy {
-    () => {
-        impl FnOnce(diagnostics::builder::DiagnosticBuilder) -> diagnostics::builder::DiagnosticBuilder
-    };
-}
-
-pub fn conserve() -> impl FnOnce(DiagnosticBuilder) -> DiagnosticBuilder {
-    |b| b
-}
-
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DiagnosticBuilder {
     pub severity: Severity,
     pub code: Option<&'static str>,

@@ -10,6 +10,11 @@ use db::{
     SourceRoot,
 };
 use diagnostics::Diagnostic;
+use elaborator::{
+    ElabDatabase,
+    ElabDb,
+    ElaboratedFile,
+};
 use salsa::{
     CancellationToken,
     Database,
@@ -94,6 +99,16 @@ impl Compiler {
 
     pub fn parse(&self, file: SourceFile) -> &Parse<AstSourceFile> {
         parse_file(&self.db, file)
+    }
+
+    pub fn elaborate(&self, file: SourceFile) {
+        let db: &dyn ElabDatabase = &self.db;
+        db.elaborate_file(file);
+    }
+
+    pub fn dbg_elaborate(&self, file: SourceFile) -> ElaboratedFile<'_> {
+        let db: &dyn ElabDatabase = &self.db;
+        db.dbg_elaborate_file(file)
     }
 
     pub fn diagnostics(&self, file: SourceFile) -> Vec<Diagnostic> {

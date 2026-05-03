@@ -7,6 +7,7 @@ use crate::{
         expr::EXPR_FIRST,
     },
 };
+use diagnostics::Severity;
 
 pub const DECL_FIRST: TokenSet = TokenSet::new(&[TokenKind::DefKw]);
 
@@ -22,7 +23,13 @@ impl Parser<'_> {
             if self.at_decl_start() {
                 self.parse_decl();
             } else {
-                self.error_and_bump("expected a declaration");
+                self.recover_until_with(
+                    DECL_FIRST,
+                    None,
+                    Severity::Error,
+                    "expected a declaration",
+                    |b| b,
+                );
             }
         }
         m.complete(self, SyntaxKind::SourceFile);
@@ -36,30 +43,48 @@ impl Parser<'_> {
     pub fn parse_def_decl(&mut self) {
         let m = self.start();
         self.bump_remap(SyntaxKind::DefKw);
-        let recovery = DECL_FIRST.union(EXPR_FIRST);
 
         let name = self.start();
-        if self.expect_recover(TokenKind::Identifier, recovery) {
+        if self.expect_recover(TokenKind::Identifier, DECL_FIRST) {
             name.complete(self, SyntaxKind::Name);
         } else {
             name.abandon(self);
             m.complete(self, SyntaxKind::DefDecl);
             return;
         }
-        if !self.expect_recover(TokenKind::DefEq, recovery) {
-            m.complete(self, SyntaxKind::DefDecl);
-            return;
+
+        self.with_help("parameters must be declared before the `:=`", |p| {
+            while p.at(TokenKind::LParen) || p.at(TokenKind::LBrace) || p.at(TokenKind::LBracket) {
+                p.parse_binder(DECL_FIRST);
+            }
+        });
+
+        let header_recovery = DECL_FIRST
+            .union(TokenSet::new(&[TokenKind::DefEq]))
+            .union(EXPR_FIRST);
+        let colon = self.with_help("all definitions need an explicit return type", |p| {
+            p.expect_recover(TokenKind::Colon, header_recovery)
+        });
+        if colon {
+            self.parse_type(header_recovery);
         }
 
+        let body_recovery = DECL_FIRST.union(EXPR_FIRST);
+        let has_eq = self.expect_recover(TokenKind::DefEq, body_recovery);
+
         if self.at(TokenKind::Eof) {
-            self.error_expected_with("expression", recovery, |b| b
-            .with_help("either add a body to this declaration, or remove the `:=` if you intended to declare a name without defining it".into())
-        );
-        } else {
+            if has_eq {
+                self.with_help(
+                    "either add a body to this declaration, or remove the `:=` if you intended to declare a name without defining it",
+                    |p| p.error_expected("expression", body_recovery),
+                );
+            }
+        } else if self.at_expr_start() {
             let prev_range = self.prev_range().unwrap();
             let eq_label = self.label(prev_range, "`:=` here");
-            self.parse_expr(recovery, |b| b.with_secondary_label(eq_label));
+            self.with_label(eq_label, |p| p.parse_expr(body_recovery));
         }
+
         m.complete(self, SyntaxKind::DefDecl);
     }
 }

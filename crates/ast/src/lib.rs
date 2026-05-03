@@ -1,5 +1,8 @@
+pub mod ext;
 pub mod generated;
 pub mod traits;
+
+pub use ext::BinderInfo;
 
 use crate::traits::AstNode;
 use db::{

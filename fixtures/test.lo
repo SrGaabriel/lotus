@@ -1,10 +1,12 @@
-def hello := {}
+def hello : Int32 := {}
 
-def foo := 5
+def hello_world (hello : String) (world : String) : String := {}
 
-def world := 5
+def foo : Int32 := 5
 
-def stmts := {
+def world : Int32 := 5
+
+def stmts : Int32 := {
     let x := 5;
     let y := 10;
     x := 10;

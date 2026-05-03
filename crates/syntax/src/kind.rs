@@ -36,6 +36,8 @@ pub enum SyntaxKind {
     Dot,
     #[static_text(":=")]
     DefEq,
+    #[static_text(":")]
+    Colon,
 
     Unknown,
 
@@ -43,11 +45,15 @@ pub enum SyntaxKind {
     LetKw,
 
     // === Nodes ===
-    Root,
     SourceFile,
     DefDecl,
+    ParenBinder,
+    BraceBinder,
+    BracketBinder,
+    DefReturnType,
     Name,
     Expr,
+    Type,
     Error,
     ParenExpr,
     BraceBlock,
@@ -77,6 +83,7 @@ impl SyntaxKind {
             TokenKind::Unknown => Self::Unknown,
             TokenKind::DefKw => Self::DefKw,
             TokenKind::LetKw => Self::LetKw,
+            TokenKind::Colon => Self::Colon,
             TokenKind::Eof => unreachable!("Eof never reaches the syntax tree"),
         }
     }

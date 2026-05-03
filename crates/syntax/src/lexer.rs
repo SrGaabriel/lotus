@@ -28,6 +28,7 @@ pub enum TokenKind {
     Comma,
     Dot,
     DefEq,
+    Colon,
 
     Unknown,
     Eof,
@@ -36,6 +37,32 @@ pub enum TokenKind {
 impl TokenKind {
     pub const fn as_index(self) -> u8 {
         unsafe { *(&raw const self).cast::<u8>() }
+    }
+
+    pub const fn reference(self) -> &'static str {
+        match self {
+            Self::Whitespace => "whitespace",
+            Self::LineComment => "line comment",
+            Self::BlockComment { .. } => "block comment",
+            Self::Identifier => "identifier",
+            Self::OpIdentifier => "operator identifier",
+            Self::DefKw => "'def'",
+            Self::LetKw => "'let'",
+            Self::Number => "number",
+            Self::LParen => "'('",
+            Self::RParen => "')'",
+            Self::LBrace => "'{'",
+            Self::RBrace => "'}'",
+            Self::LBracket => "'['",
+            Self::RBracket => "']'",
+            Self::Semicolon => "';'",
+            Self::Comma => "','",
+            Self::Dot => "'.'",
+            Self::DefEq => "':='",
+            Self::Colon => "':'",
+            Self::Unknown => "unknown token",
+            Self::Eof => "end of file",
+        }
     }
 }
 
@@ -175,6 +202,7 @@ impl<'a> Cursor<'a> {
             ';' => TokenKind::Semicolon,
             ',' => TokenKind::Comma,
             '.' => TokenKind::Dot,
+            ':' => TokenKind::Colon,
 
             _ => TokenKind::Unknown,
         };
@@ -285,6 +313,5 @@ fn is_op_char(c: char) -> bool {
             | '|'
             | '-'
             | '~'
-            | ':'
     )
 }

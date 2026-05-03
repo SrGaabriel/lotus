@@ -349,6 +349,7 @@ dependencies = [
  "ast",
  "db",
  "diagnostics",
+ "elaborator",
  "salsa",
  "structure",
  "thiserror",
@@ -372,6 +373,7 @@ dependencies = [
  "rustc-hash",
  "salsa",
  "structure",
+ "tracing",
 ]
 
 [[package]]
@@ -759,6 +761,7 @@ dependencies = [
  "clap",
  "diagnostics",
  "driver",
+ "elaborator",
  "structure",
  "tracing",
  "tracing-subscriber",
