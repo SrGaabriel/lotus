@@ -19,19 +19,20 @@ pub struct ItemTree<'db> {
 
 #[salsa::tracked]
 pub fn item_tree(db: &dyn ElabDatabase, file: SourceFile) -> ItemTree<'_> {
+    tracing::info!("Computing item tree for file {:?}", file);
     let parse = parse_file(db, file);
     let source = parse.tree();
 
     let mut items = Vec::new();
     for (i, decl) in source.decl().enumerate() {
         let ast::Decl::DefDecl(def) = decl;
-        let Some(name_node) = def.name() else {
+        let Some(ident_node) = def.ident() else {
             continue;
         };
-        let Some(ident) = name_node.ident() else {
+        let Some(ident) = ident_node.text() else {
             continue;
         };
-        let symbol = Symbol::from_str(db, ident.text());
+        let symbol = Symbol::from_str(db, ident);
         items.push(ItemId::new(db, file, symbol, i as u32, ItemKind::Def));
     }
 

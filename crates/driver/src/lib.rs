@@ -14,6 +14,7 @@ use elaborator::{
     ElabDatabase,
     ElabDb,
     ElaboratedFile,
+    elaborate_file,
 };
 use salsa::{
     CancellationToken,
@@ -112,10 +113,18 @@ impl Compiler {
     }
 
     pub fn diagnostics(&self, file: SourceFile) -> Vec<Diagnostic> {
-        parse_file::accumulated::<Diagnostic>(&self.db, file)
-            .into_iter()
-            .cloned()
-            .collect()
+        let mut out = Vec::new();
+        out.extend(
+            parse_file::accumulated::<Diagnostic>(&self.db, file)
+                .into_iter()
+                .cloned(),
+        );
+        out.extend(
+            elaborate_file::accumulated::<Diagnostic>(&self.db, file)
+                .into_iter()
+                .cloned(),
+        );
+        out
     }
 
     pub fn cancellation_token(&self) -> CancellationToken {

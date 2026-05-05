@@ -2,9 +2,7 @@ pub mod body;
 pub mod def_map;
 pub mod item_tree;
 pub mod namespace;
-pub mod signature;
 
 pub use body::DefBody;
 pub use item_tree::ItemTree;
 pub use namespace::Namespace;
-pub use signature::Signature;

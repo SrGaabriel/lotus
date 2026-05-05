@@ -1,7 +1,9 @@
-use crate::generated::{
-    Binder,
-    Name,
-    Type,
+use crate::{
+    Identifier,
+    generated::{
+        Binder,
+        Type,
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -12,7 +14,7 @@ pub enum BinderInfo {
 }
 
 impl Binder {
-    pub fn name(&self) -> Option<Name> {
+    pub fn name(&self) -> Option<Identifier> {
         match self {
             Self::ParenBinder(b) => b.name(),
             Self::BraceBinder(b) => b.name(),

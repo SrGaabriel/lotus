@@ -5,7 +5,10 @@ Decl =
   DefDecl
 
 DefDecl =
-  'def' name:Name params:Binder* ':' return_type:Type ':=' body:Expr
+  'def' ident:Identifier params:Binder* return_type:DefReturnType ':=' body:Expr
+
+DefReturnType =
+  ':' Type
 
 Expr =
   ParenExpr | BraceBlock | Literal | Name
@@ -20,10 +23,10 @@ Stmt =
   LetStmt | MutationStmt
 
 LetStmt =
-  'let' name:Name ':=' expr:Expr ';'
+  'let' name:Identifier ':=' expr:Expr ';'
 
 MutationStmt =
-  name:Name ':=' expr:Expr ';'
+  name:Identifier ':=' expr:Expr ';'
 
 Literal =
   NumberLit | StringLit
@@ -32,18 +35,27 @@ Binder =
   ParenBinder | BraceBinder | BracketBinder
 
 ParenBinder =
-  '(' name:Name ':' type:Type ')'
+  '(' name:Identifier ':' type:Type ')'
 
 BraceBinder =
-  '{' name:Name ':' type:Type '}'
+  '{' name:Identifier ':' type:Type '}'
 
 BracketBinder =
-  '[' name:Name ':' type:Type ']'
+  '[' name:Identifier ':' type:Type ']'
 
 Type =
-  Name
+  Name | PiType
+
+PiType =
+  params:Binder* '->' return_type:Type
 
 Name =
+  path:PathSegment* member:Identifier
+
+PathSegment =
+  '::' Identifier
+
+Identifier =
   'ident'
 
 NumberLit =

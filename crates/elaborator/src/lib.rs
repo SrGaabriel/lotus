@@ -10,13 +10,11 @@ use db::SourceFile;
 
 pub use crate::{
     elab::{
+        Signature,
         elaborate_decl,
         elaborate_file,
     },
-    env::{
-        DefBody,
-        Signature,
-    },
+    env::DefBody,
     ids::{
         ItemId,
         ItemKind,
@@ -91,7 +89,7 @@ impl<'db> ElabDb<'db> for Db<'db> {
     }
 
     fn signature(self, item: ItemId<'db>) -> &'db Signature<'db> {
-        env::signature::signature(self, item)
+        elab::sig::signature(self, item)
     }
 
     fn def_body(self, item: ItemId<'db>) -> &'db DefBody<'db> {
@@ -107,6 +105,7 @@ impl<'db> ElabDb<'db> for Db<'db> {
     }
 
     fn dbg_elaborate_file(self, file: SourceFile) -> ElaboratedFile<'db> {
+        tracing::info!("Elaborating file: {:?}", file);
         let namespace = self.def_map(file);
         let items = namespace
             .decls(self)

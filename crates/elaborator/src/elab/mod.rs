@@ -1,5 +1,10 @@
 pub mod ctx;
 pub mod def;
+pub mod local;
+pub mod meta;
+pub mod sig;
+
+pub use sig::Signature;
 
 use db::SourceFile;
 

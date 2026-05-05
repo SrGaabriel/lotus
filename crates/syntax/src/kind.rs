@@ -38,6 +38,10 @@ pub enum SyntaxKind {
     DefEq,
     #[static_text(":")]
     Colon,
+    #[static_text("::")]
+    ColonColon,
+    #[static_text("->")]
+    RArrow,
 
     Unknown,
 
@@ -52,8 +56,8 @@ pub enum SyntaxKind {
     BracketBinder,
     DefReturnType,
     Name,
-    Expr,
-    Type,
+    PathSegment,
+    PiType,
     Error,
     ParenExpr,
     BraceBlock,

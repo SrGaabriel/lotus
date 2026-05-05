@@ -1,5 +1,5 @@
 // @generated
-use crate::traits::{AstNode, AstChildren, child, children, token};
+use crate::traits::{AstNode, AstChildren, child, children, token, token_text};
 use syntax::{ResolvedNode, ResolvedToken, kind::SyntaxKind};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
@@ -38,16 +38,13 @@ impl DefDecl {
     pub fn def_kw(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::DefKw)
     }
-    pub fn name(&self) -> Option<Name> {
+    pub fn ident(&self) -> Option<Identifier> {
         child(&self.0)
     }
     pub fn params(&self) -> AstChildren<'_, Binder> {
         children(&self.0)
     }
-    pub fn colon(&self) -> Option<ResolvedToken> {
-        token(&self.0, SyntaxKind::Colon)
-    }
-    pub fn return_type(&self) -> Option<Type> {
+    pub fn return_type(&self) -> Option<DefReturnType> {
         child(&self.0)
     }
     pub fn def_eq(&self) -> Option<ResolvedToken> {
@@ -59,10 +56,10 @@ impl DefDecl {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
-pub struct Name(ResolvedNode);
-impl AstNode for Name {
+pub struct Identifier(ResolvedNode);
+impl AstNode for Identifier {
     fn can_cast(k: SyntaxKind) -> bool {
-        k == SyntaxKind::Name
+        k == SyntaxKind::Identifier
     }
     fn cast(node: ResolvedNode) -> Option<Self> {
         Self::can_cast(node.kind()).then_some(Self(node))
@@ -71,9 +68,34 @@ impl AstNode for Name {
         &self.0
     }
 }
-impl Name {
+impl Identifier {
     pub fn ident(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::Identifier)
+    }
+    pub fn text(&self) -> Option<&str> {
+        token_text(&self.0, SyntaxKind::Identifier)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct DefReturnType(ResolvedNode);
+impl AstNode for DefReturnType {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::DefReturnType
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl DefReturnType {
+    pub fn colon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Colon)
+    }
+    pub fn r#type(&self) -> Option<Type> {
+        child(&self.0)
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -128,6 +150,28 @@ impl BraceBlock {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
+pub struct Name(ResolvedNode);
+impl AstNode for Name {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::Name
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl Name {
+    pub fn path(&self) -> AstChildren<'_, PathSegment> {
+        children(&self.0)
+    }
+    pub fn member(&self) -> Option<Identifier> {
+        child(&self.0)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct LetStmt(ResolvedNode);
 impl AstNode for LetStmt {
     fn can_cast(k: SyntaxKind) -> bool {
@@ -144,7 +188,7 @@ impl LetStmt {
     pub fn let_kw(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::LetKw)
     }
-    pub fn name(&self) -> Option<Name> {
+    pub fn name(&self) -> Option<Identifier> {
         child(&self.0)
     }
     pub fn def_eq(&self) -> Option<ResolvedToken> {
@@ -172,7 +216,7 @@ impl AstNode for MutationStmt {
     }
 }
 impl MutationStmt {
-    pub fn name(&self) -> Option<Name> {
+    pub fn name(&self) -> Option<Identifier> {
         child(&self.0)
     }
     pub fn def_eq(&self) -> Option<ResolvedToken> {
@@ -203,6 +247,9 @@ impl NumberLit {
     pub fn number_lit(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::NumberLit)
     }
+    pub fn text(&self) -> Option<&str> {
+        token_text(&self.0, SyntaxKind::NumberLit)
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
@@ -221,6 +268,9 @@ impl AstNode for StringLit {
 impl StringLit {
     pub fn string_lit(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::StringLit)
+    }
+    pub fn text(&self) -> Option<&str> {
+        token_text(&self.0, SyntaxKind::StringLit)
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -241,7 +291,7 @@ impl ParenBinder {
     pub fn l_paren(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::LParen)
     }
-    pub fn name(&self) -> Option<Name> {
+    pub fn name(&self) -> Option<Identifier> {
         child(&self.0)
     }
     pub fn colon(&self) -> Option<ResolvedToken> {
@@ -272,7 +322,7 @@ impl BraceBinder {
     pub fn l_brace(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::LBrace)
     }
-    pub fn name(&self) -> Option<Name> {
+    pub fn name(&self) -> Option<Identifier> {
         child(&self.0)
     }
     pub fn colon(&self) -> Option<ResolvedToken> {
@@ -303,7 +353,7 @@ impl BracketBinder {
     pub fn l_bracket(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::LBracket)
     }
-    pub fn name(&self) -> Option<Name> {
+    pub fn name(&self) -> Option<Identifier> {
         child(&self.0)
     }
     pub fn colon(&self) -> Option<ResolvedToken> {
@@ -314,6 +364,53 @@ impl BracketBinder {
     }
     pub fn r_bracket(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::RBracket)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct PiType(ResolvedNode);
+impl AstNode for PiType {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::PiType
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl PiType {
+    pub fn params(&self) -> AstChildren<'_, Binder> {
+        children(&self.0)
+    }
+    pub fn arrow(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::RArrow)
+    }
+    pub fn return_type(&self) -> Option<Type> {
+        child(&self.0)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct PathSegment(ResolvedNode);
+impl AstNode for PathSegment {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::PathSegment
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl PathSegment {
+    pub fn colon_colon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::ColonColon)
+    }
+    pub fn identifier(&self) -> Option<Identifier> {
+        child(&self.0)
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -368,26 +465,6 @@ impl AstNode for Binder {
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Type {
-    Name(Name),
-}
-impl AstNode for Type {
-    fn can_cast(k: SyntaxKind) -> bool {
-        Name::can_cast(k)
-    }
-    fn cast(node: ResolvedNode) -> Option<Self> {
-        if let Some(it) = Name::cast(node.clone()) {
-            return Some(Self::Name(it));
-        }
-        None
-    }
-    fn syntax(&self) -> &ResolvedNode {
-        match self {
-            Self::Name(it) => it.syntax(),
-        }
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
     ParenExpr(ParenExpr),
     BraceBlock(BraceBlock),
@@ -420,6 +497,31 @@ impl AstNode for Expr {
             Self::BraceBlock(it) => it.syntax(),
             Self::Literal(it) => it.syntax(),
             Self::Name(it) => it.syntax(),
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Type {
+    Name(Name),
+    PiType(PiType),
+}
+impl AstNode for Type {
+    fn can_cast(k: SyntaxKind) -> bool {
+        Name::can_cast(k) || PiType::can_cast(k)
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        if let Some(it) = Name::cast(node.clone()) {
+            return Some(Self::Name(it));
+        }
+        if let Some(it) = PiType::cast(node.clone()) {
+            return Some(Self::PiType(it));
+        }
+        None
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        match self {
+            Self::Name(it) => it.syntax(),
+            Self::PiType(it) => it.syntax(),
         }
     }
 }

@@ -4,9 +4,11 @@ use crate::ids::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Update)]
+#[repr(transparent)]
 pub struct TermId(pub u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Update)]
+#[repr(transparent)]
 pub struct LevelId(pub u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Update)]

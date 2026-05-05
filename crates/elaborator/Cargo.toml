@@ -15,6 +15,7 @@ rustc-hash.workspace = true
 salsa.workspace = true
 structure.workspace = true
 tracing.workspace = true
+text-size.workspace = true
 
 [lints]
 workspace = true

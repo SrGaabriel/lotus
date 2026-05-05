@@ -6,7 +6,10 @@ use crate::{
         TermArena,
         TermId,
     },
-    elab::ctx::ElabCtx,
+    elab::{
+        ctx::ElabCtx,
+        meta::MetaOrigin,
+    },
     ids::{
         ItemId,
         ItemKind,
@@ -29,13 +32,18 @@ pub fn signature<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Signature
 
     let ty = match item.kind(db) {
         ItemKind::Def => match source.decl().nth(item.ast_index(db) as usize) {
-            Some(ast::Decl::DefDecl(decl)) => match decl.return_type() {
-                Some(ret_ty) => cx.lower_return_type(ret_ty),
-                None => cx.placeholder(),
+            Some(ast::Decl::DefDecl(decl)) => match decl.return_type().and_then(|r| r.r#type()) {
+                Some(ret_ty) => cx.lower_type(ret_ty),
+                None => cx.error_mvar(&MetaOrigin::Error("missing return type".to_owned())),
             },
-            _ => cx.placeholder(),
+            _ => cx.error_mvar(&MetaOrigin::Error("expected a definition".to_owned())),
         },
     };
+    tracing::info!(
+        "Computed signature for item {:?}: {:?}",
+        item,
+        cx.arena.get_term(ty)
+    );
 
     Signature {
         arena: cx.arena,

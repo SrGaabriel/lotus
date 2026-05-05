@@ -106,7 +106,7 @@ impl Parser<'_> {
     ) {
         let name = self.start();
         if self.expect_recover(TokenKind::Identifier, recovery) {
-            name.complete(self, SyntaxKind::Name);
+            name.complete(self, SyntaxKind::Identifier);
         } else {
             name.abandon(self);
             m.complete(self, kind);
@@ -124,7 +124,9 @@ impl Parser<'_> {
 
     pub fn parse_name_expr(&mut self, recovery: TokenSet) {
         let m = self.start();
+        let ident = self.start();
         self.expect_recover(TokenKind::Identifier, recovery);
+        ident.complete(self, SyntaxKind::Identifier);
         m.complete(self, SyntaxKind::Name);
     }
 
@@ -159,7 +161,7 @@ impl Parser<'_> {
         if !self.at(close) {
             let name = self.start();
             if self.expect_recover(TokenKind::Identifier, inner) {
-                name.complete(self, SyntaxKind::Name);
+                name.complete(self, SyntaxKind::Identifier);
             } else {
                 name.abandon(self);
                 m.complete(self, kind);
@@ -176,7 +178,9 @@ impl Parser<'_> {
 
     pub fn parse_type(&mut self, recovery: TokenSet) {
         let m = self.start();
+        let ident = self.start();
         self.expect_recover(TokenKind::Identifier, recovery);
-        m.complete(self, SyntaxKind::Type);
+        ident.complete(self, SyntaxKind::Identifier);
+        m.complete(self, SyntaxKind::Name);
     }
 }

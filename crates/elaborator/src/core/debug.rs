@@ -36,9 +36,9 @@ pub fn write_file(out: &mut dyn Write, db: Db<'_>, file: &ElaboratedFile<'_>) ->
 fn write_item(out: &mut dyn Write, db: Db<'_>, item: &ElaboratedItem<'_>) -> fmt::Result {
     let name = item.id.name(db).text(db);
     let kind = item.id.kind(db);
-    writeln!(out, "{kind:?} {name} [#{}]", item.id.ast_index(db))?;
+    write!(out, "{kind} {name} [#{}]", item.id.ast_index(db))?;
 
-    write!(out, "  : ")?;
+    write!(out, " : ")?;
     write_term(out, db, &item.signature.arena, item.signature.ty, 0)?;
     writeln!(out)?;
 

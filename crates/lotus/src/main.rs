@@ -60,7 +60,6 @@ fn main() -> anyhow::Result<()> {
                 println!("Elaborated file: {debug}");
             }
         }
-
         let diagnostics = compiler.diagnostics(file);
         if diagnostics.is_empty() {
             println!("No diagnostics found!");

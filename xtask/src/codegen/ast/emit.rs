@@ -28,7 +28,7 @@ pub fn emit(src: &AstSrc) -> Result<String> {
     let enums = src.enums.iter().map(emit_enum);
 
     let file: TokenStream = quote! {
-        use crate::traits::{AstNode, AstChildren, child, children, token};
+        use crate::traits::{AstNode, AstChildren, child, children, token, token_text};
         use syntax::{ResolvedNode, ResolvedToken, kind::SyntaxKind};
 
         #(#nodes)*
@@ -47,6 +47,18 @@ fn emit_node(n: &AstNodeSrc) -> TokenStream {
     let kind = format_ident!("{}", n.name);
     let accessors = n.fields.iter().map(emit_field);
 
+    let text_fn = match n.fields.as_slice() {
+        [Field::Token { kind, .. }] => {
+            let k = ident(kind);
+            Some(quote! {
+                pub fn text(&self) -> Option<&str> {
+                    token_text(&self.0, SyntaxKind::#k)
+                }
+            })
+        }
+        _ => None,
+    };
+
     quote! {
         #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         #[repr(transparent)]
@@ -62,6 +74,7 @@ fn emit_node(n: &AstNodeSrc) -> TokenStream {
 
         impl #name {
             #(#accessors)*
+            #text_fn
         }
     }
 }

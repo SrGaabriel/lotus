@@ -1,3 +1,4 @@
+use cstree::util::NodeOrToken;
 use std::marker::PhantomData;
 use syntax::{
     ResolvedNode,
@@ -59,4 +60,12 @@ pub fn token(parent: &ResolvedNode, kind: SyntaxKind) -> Option<ResolvedToken> {
         .children_with_tokens()
         .filter_map(|el| el.into_token().cloned())
         .find(|t| t.kind() == kind)
+}
+
+pub fn token_text(parent: &ResolvedNode, kind: SyntaxKind) -> Option<&str> {
+    parent
+        .children_with_tokens()
+        .filter_map(NodeOrToken::into_token)
+        .find(|t| t.kind() == kind)
+        .map(ResolvedToken::text)
 }
