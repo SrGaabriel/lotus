@@ -156,3 +156,129 @@ The compiler becomes a proof checker and we can get very strong guarantees about
   Logic
 ]
 
+Now we need to pick a logic to reason about our programs. The choice of logic determines what kinds of properties we can express and prove about our programs, as well as the tools and techniques we can use to do so. Ultimately, it means choosing the type system.
+
+There are many logics we can use to reason about our programs. There are a few metrics:
+
+1. *Expressiveness*: how much can we say in this logic? Can we talk about sets of sets, properties of properties, etc?
+2. *Consistency*: are there any contradictions in this logic? Can we prove falsehood?
+3. *Decidability*: can we algorithmically determine whether a given statement is provable in this logic?
+
+For dependently typed programming languages, we want a logic that is expressive enough to talk about properties of our programs, consistent so that we don't end up proving falsehoods and ideally decidable so that we can have an algorithmic way to check proofs. However, there are trade-offs between these properties and we will see how different logics navigate these trade-offs.
+
+#heading(level: 2)[
+  Families of logics
+]
+
+We can divide logics into two broad categories: classical and intuitionistic. Both of them contain propositional logic, first-order logic and higher-order logic, but they differ in philosophy.
+
+Classical/standard logic is the family of logics that follow the standard principles:
+
+1. *Law of excluded middle:* every proposition is either true or false
+2. *Law of non-contradiction:* no proposition is both true and false
+3. *Bivalence:* only two truth values (true/false)
+4. *Monotonicity of Entailment:* Adding more premises never invalidates existing conclusions.
+5. *Idempotency of Entailment:* Repeating a premise does not change what can be inferred.
+6. *Commutativity of Conjunction:* The order of “and” statements doesn’t affect truth (`A ∧ B ≡ B ∧ A`).
+7. *De Morgan Duality:* Every logical operator has a dual via negation (`¬(A ∧ B) ≡ ¬A ∨ ¬B`, `¬(A ∨ B) ≡ ¬A ∧ ¬B`).
+
+The philosophy here is that a statement is true or false independently of whether we can prove it.
+
+Intuitionistic/constructive logic, on the other hand, rejects the law of excluded middle and bivalence (as well as the converse of the De Morgan duality). Here, a statement is only true if we have a proof of it and false if we have a proof of its negation. If we don't have a proof of either, then the statement is neither true nor false. This means that there are some statements that are not decidable, meaning that we can't determine whether they are true or false.
+
+So for example the excluded middle of a proposition `P` is `P ∨ ¬P`, which says that either we have a proof of `P` or we have a proof of `¬P`, is not a tautology here because we might not have a proof of either `P` or `¬P`.
+
+The constructive reading of logic is exactly what we need for programming. When we say "there exists a function that satisfies this property", we want to be able to construct such a function, not just know that it exists in some abstract sense. The constructive reading of logic gives us a way to do that, it allows us to extract programs from proofs and to reason about our programs in a way that is directly connected to their implementation.
+
+A word you will hear often in the constructivism is *witness*. A witness is a term that serves as evidence for the truth of a proposition. For example, if we have a proposition that says "there exists an integer `n` such that `n > 5`", then a witness for this proposition would be 6, for example. In the context of programming, a witness can be thought of as a concrete example or instance that demonstrates the truth of a claim. For instance, if we have a function that claims to return a sorted list, then a witness for this claim would be an actual sorted list that the function returns when given some input.
+
+Intuitionistic logic cares a lot about witnesses because they are the constructive evidence for the truth of a proposition. Although classical logic also accepts witnesses as proofs, it doesn't require them. Witnesses are not limited to values but also to functions. For example, if we have a proposition that says "for all integers `n`, there exists an integer `m` such that `m > n`", then a witness for this proposition would be a function that takes an integer `n` and returns an integer `m` such that `m > n`, for example, the function `f(n) = n + 1`. In Curry-Howard, witnesses are simply *values*, which make the isomorphism complete:
+
+1. Types are propositions
+2. Terms are proofs (witnesses)
+
+Functions are merely named terms in denotational semantics, so they are also proofs. The function `f(n) = n + 1` is a witness of the proposition "for all integers `n`, there exists an integer `m` such that `m > n`" because it provides a way to construct such an integer `m` for any given integer `n`.
+
+So we have to go with intuitionistic logic for our programming language, classical logic's philosophy of truth doesn't align with the constructive nature of programming. However, we can still use classical logic as a tool for reasoning about our programs, as long as we are careful to only use it in ways that are compatible with the constructive reading of logic. For example, we can use classical logic to prove theorems about our programs, but we should not use it to make claims about the existence of certain functions or properties without providing a constructive witness for those claims.
+
+#heading(level: 2)[
+  Propositional logic
+]
+
+Propositional logic is the simplest form of classical logic, it deals only with whole propositions (statements that are true or false) and the connectives between them without variables, quantifiers or internal structure.
+
+The propositions are atomic, you can't look inside them or talk about their properties, they are just black boxes that can be true or false.
+
+Not all connectives are independent, you can express every possible truth function using just:
+
+- ${ not, and}$
+- ${ not, or}$
+- ${ not, =>}$
+- or even a single connective: NAND ($arrow.t$) or NOR ($arrow.b$) alone
+
+This is called *functional completeness*, which means that a set of connectives is sufficient to express all possible truth functions. Every digital circuit can be built from NAND alone, which is just propositional logic. In fact, you can even make a computer out of NAND gates! @NAND. This is basically how our CPUs already work, they are just a big network of NAND gates.
+
+Since propositional logic is so simple, it is decidable. We can algorithmically determine whether a given statement is provable in propositional logic by using truth tables or other methods.
+
+But propositional logic is not very expressive since it can't talk about the internal structure of propositions or about properties of values.
+
+#heading(level: 2)[
+  First-order logic
+]
+
+First-order logic extends propositional logic by introducing quantifiers and variables that can range over a domain of discourse. This allows us to talk about the internal structure of propositions and to express properties of values.
+
+"Order" refers to what you're allowed to quantify over. In first-order logic, you can only quantify over individuals (elements of your domain), never over predicates or functions themselves.
+
+So you can say $forall x, P(x)$ ("for all elements x, predicate P holds") but you can't say $forall P \, P(x)$ ("for all predicates P, P holds of x").
+
+Therefore, first-order logic technically doesn't have induction, but we can encode it as an axiom schema. An axiom schema is a template that generates infinitely many axioms, one for each formula you plug into it. Say you want to define the natural numbers. You have zero, successor and you want induction. Induction says: if some property holds for 0 and whenever it holds for n it also holds for n+1, then it holds for all natural numbers.
+
+What you can do is write induction for one specific property at a time. Say you want to prove that every natural number is either even or odd, you write:
+
+$"EvenOrOdd"(0) and forall n, ("EvenOrOdd"(n) => "EvenOrOdd"(n+1)) => forall n, "EvenOrOdd"(n)$
+
+That's a perfectly valid first-order sentence. It's just the induction principle with $P$ replaced by one concrete formula.
+
+If you are paying attention, this should've reminded you of polymorphism and monomorphization. In programming languages, we have a similar situation where we want to write a function that works for all types, such as `length :: [a] -> Int`, but we can't directly express that in a language without polymorphism. Instead, we can write a monomorphized version of the function for each type we want to support, such as `lengthInt :: [Int] -> Int`, `lengthString :: [String] -> Int`, etc. This is similar to how we can write an axiom schema for induction in first-order logic.
+
+First-order logic is complete, sound, semi-decidable and compact:
+1. *Completeness* means that if a statement is true in all models of a theory, then it is provable from the axioms of that theory. In other words, if something is semantically valid, then it is syntactically provable.
+2. *Soundness* means that if a statement is provable from the axioms of a theory, then it is true in all models of that theory. In other words, if something is syntactically provable, then it is semantically valid.
+3. *Semi-decidable* means that there is an algorithm that can determine whether a given statement is provable from the axioms of a theory, but there is no algorithm that can determine whether a given statement is not provable.
+4. *Compactness* means that if every finite subset of a theory has a model, then the whole theory does. This is a very powerful property that allows us to build infinite structures by ensuring that all of their finite substructures are consistent.
+
+Therefore, first-order logic is a very well-behaved logic that has many nice properties, but it is not very expressive and compactness can be a double-edged sword since it can lead to unintended consequences, such as the existence of non-standard models of arithmetic.
+
+#heading(level: 2)[
+  Higher-order logic
+]
+
+Where First-Order Logic only lets you quantify over individuals, higher-order logic lets you quantify over predicates, functions and relations themselves. You can say things like "for all properties P, if P holds for 0 and P is preserved by successor, then P holds for all natural numbers", that's the induction principle which is second-order.
+
+That looks like $forall P, P(0) and forall n, (P(n) => P(n+1)) => forall n, P(n)$.
+
+This is the fundamental trade-off. Higher-order logic is dramatically more expressive:
+
+- It can categorically define the natural numbers by Peano's axioms (up to isomorphism)
+- It can categorically define the reals as Dedekind cuts (up to isomorphism)
+- It can express the induction principle as a single axiom
+- It can define finiteness, well-ordering and continuity directly
+
+But you pay for this. Gödel's completeness theorem fails (there are higher-order truths with no formal proof) and you also lose compactness. In a sense, higher-order logic is so expressive that no proof system can fully capture it. This is why first-order logic became the standard foundation for mathematics, because it's the sweet spot where you still have a complete proof system.
+
+However, that limitation is not the end of the story. There are two main semantics for higher-order logic:
+
+1. Standard semantics: predicate variables range over all subsets/relations, which gives you full expressiveness but breaks completeness.
+2. Henkin semantics: predicate variables range over a specified (possibly restricted) collection of subsets, which recovers completeness but is essentially equivalent to a many-sorted first-order theory.
+
+When people say "higher-order logic is incomplete" they mean standard semantics. Most proof assistants use something closer to Henkin semantics in practice.
+
+In fact, higher-order logic is the standard in type theory. System F (polymorphic lambda calculus) is essentially second-order logic under the Curry-Howard correspondence:
+
+- A polymorphic type like `forall a. a -> a` is a second-order universal quantification, it quantifies over types (which play the role of predicates)
+- Type constructors like `List : Type -> Type` are higher-order (they're functions on types)
+
+So higher-order logic's expressiveness is what we're looking for to prove interesting properties about our polymorphic and higher-order programs.
+
+#bibliography("works.bib", style: "nature")
