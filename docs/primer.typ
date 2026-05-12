@@ -66,7 +66,7 @@ So how do we execute side-effectful programs in pure functional programming? The
 
 In the imperative paradigm, a type is a label on bits. `int` signifies that the next four bytes should be read as a two's-complement integer, `String` represents a pointer to a heap-allocated sequence of characters, etc. The type system's job is to make sure you don't read those bytes the wrong way and that you don't conflate different kinds of data.
 
-This is a useful job as it catches a lot of bugs at compile time as types describe layout and prevent confusion. However, they do not say much about what the program means. For example, a function with type `int -> int` could be either the factorial or a function that erases your hard drive and returns 0.
+This is a useful job as it catches a lot of bugs at compile time and types describe layout and prevent confusion. However, they do not say much about what the program means. For example, a function with type `int -> int` could be either the factorial or a function that erases your hard drive and returns 0.
 
 The internet is full of debates on static vs dynamic typing, but they are mostly arguing about the ergonomics of the bookkeeping system, mainly whether the safety checks are worth the extra annotations and development time.
 
@@ -105,6 +105,54 @@ If Curry-Howard is so fundamental, why do programmers get through a career witho
 
 First, the types in mainstream languages are too weak to express interesting propositions. It is a funny situation because first-order logic's evolution was "we can prove things about sets, but we can't talk about functions, so let's add functions and get higher-order logic" and then programming languages' impasse was "we can talk about functions, but we can't talk about properties of values". The Java type system is not even first-order logic, it is a very limited fragment of it. It is not surprising that the propositions it can express are not interesting enough to make the Curry-Howard reading compelling.
 
-Second, the terms in mainstream languages are not proofs because they lack totality. A C++ method of type `bool` can return `true`, return `false`, throw an exception, loop forever or halt. The Curry-Howard correspondence assumes the language is total (every well-typed term eventually produces a value of its claimed type). For instance, I shouldn't be able to do `proof_of_everything<T> -> T = proof_of_everything()`, which is a proof of any proposition `T`, including falsehood!
+Second, the terms in mainstream languages are not proofs because they lack totality. A C++ method of type `bool` can return `true`, return `false`, throw an exception, loop forever or halt. The Curry-Howard correspondence assumes the language is total (every well-typed term eventually produces a value of its claimed type). For instance, I shouldn't be able to do `fn proof_of_everything<T>() -> T = proof_of_everything()`, which is a proof of any proposition `T`, including falsehood!
 
 The languages we will care about (Lean, Agda, Idris, Rocq and ultimately Lotus) are total by design or by discipline and their type systems are also strong enough to state interesting claims.
+
+#heading(level: 2)[
+  Types that depend on values
+]
+
+What separates "interesting" propositions from "uninteresting" ones we can already prove with current languages? If propositions are types according to Curry-Howard, it means that there are some types that those languages can't express.
+
+The expressiveness of a type system can be best visualized in the $lambda$-cube:
+
+#align(center)[
+  #image("assets/lambda_cube.svg", alt: "λ-cube")
+]
+
+Each vertex of the cube represents a different type system for the lambda calculus and each axis represents a different kind of dependency between types and terms.
+
+The y-axis (up) represents terms that can depend on types. This is called *polymorphism* and is present in most modern languages and allows us to write functions that can operate on any type, such as `length :: [a] -> Int`, which can compute the length of a list of any type `a`.
+
+The z-axis (depth) represents types that can depend on types. Such types are called *type operators* and they allow us to write type-level functions, such as `List :: Type -> Type`, which takes a type `a` and returns the type of lists of `a`.
+
+Finally, the x-axis (right) represents types that can depend on terms. These are called *dependent types* and they allow us to write types that can express properties of values. For example, we can write a type `Vec :: Type -> Nat -> Type`, which takes a type `a` and a natural number `n` and returns the type of vectors of `a` of length `n`. This allows us to express properties such as "this vector has length 3" or "this matrix is square".
+
+The most famous type systems here are:
+- *$lambda$$arrow$* (simply typed lambda calculus): only non-dependent function types, no polymorphism or type operators. Roughly like C (although C is not modelled by the lambda calculus)
+- *$lambda$$2$* (System F): adds parametric polymorphism, allowing for generic functions. Roughly like Java/C\#/oCaml.
+- *$lambda$$omega$*: supports higher-kinded types, allowing for type operators. This is where Scala lives.
+- *$lambda$$omega$$2$* (System F$omega$): has universal polymorphism (you can abstract over both types and type operators). This is famously the basis of Haskell's type system.
+- *$lambda$$omega$P2* (Calculus of Constructions): adds dependent types, allowing for types that depend on terms. Rocq, Agda, Lean and Idris are all based on this.
+
+So, there are two axis of the expressivity of types that would allow for richer propositions. The z-axis allows us to talk about other propositions and operate on them. This is higher-order logic! Great, now we can talk about sets of sets, properties of properties, etc.
+
+The x-axis allows us to talk about properties of values. This is what allows us to express the claim "this vector has length 3" as a type. Here is where the fun stuff happens, because we can now express properties of our programs as types and get the compiler to check them for us. For example, we can write a function `head :: Vec a (n + 1) -> a`, which takes a non-empty vector and returns its head. The type of this function guarantees that it will never be called on an empty vector, thus preventing a common source of runtime errors.
+
+We can also prove a complex theorem about a function we wrote `encrypt :: String -> String`, for example, and say that it never produces the same output for different inputs. In Lean, this can be expressed like:
+
+```lean4
+theorem encrypt_injective : ∀ (s1 s2 : String), encrypt s1 = encrypt s2 → s1 = s2 := ...
+```
+
+Which reads roughly as "for all strings `s1` and `s2`, if `encrypt s1` is equal to `encrypt s2`, then `s1` is equal to `s2`". This is a very strong claim about the behavior of our function and if we can prove it, we can be confident that our encryption function is secure against certain types of attacks.
+
+And `∀ (s1 s2 : String), encrypt s1 = encrypt s2 → s1 = s2` is a type. We could create a term of that type, which would be a proof of that claim. If the claim is false, then there is no term of that type and the compiler will reject our program.
+
+The compiler becomes a proof checker and we can get very strong guarantees about our code. If we are to ever mess up in the implementation of `encrypt`, we won't be able to produce a proof of `encrypt_injective` and the compiler will tell us that our program is not correct. Instead of relying on unit tests which couldn't possibly cover all cases, we can get a mathematical proof that our program satisfies certain properties by reasoning about it in a purely functional way.
+
+#heading(level: 1)[
+  Logic
+]
+
