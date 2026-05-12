@@ -115,15 +115,15 @@ The languages we will care about (Lean, Agda, Idris, Rocq and ultimately Lotus) 
 
 What separates "interesting" propositions from "uninteresting" ones we can already prove with current languages? If propositions are types according to Curry-Howard, it means that there are some types that those languages can't express.
 
-The expressiveness of a type system can be best visualized in the $lambda$-cube:
+The expressiveness of a type system for the $lambda$-calculus can be best visualized in the $lambda$-cube:
 
 #align(center)[
   #image("assets/lambda_cube.svg", alt: "λ-cube")
 ]
 
-Each vertex of the cube represents a different type system for the lambda calculus and each axis represents a different kind of dependency between types and terms.
+Each vertex of the cube represents a different type system and each axis represents a different kind of dependency between types and terms that the type system allows. As we go further in each axis, we gain the ability to express more complex types.
 
-The y-axis (up) represents terms that can depend on types. This is called *polymorphism* and is present in most modern languages and allows us to write functions that can operate on any type, such as `length :: [a] -> Int`, which can compute the length of a list of any type `a`.
+The y-axis (up) represents terms that can depend on types. This is called *polymorphism* and is present in most modern languages, allowing us to write functions that can operate on any type, such as `length :: [a] -> Int`, which can compute the length of a list of any type `a`.
 
 The z-axis (depth) represents types that can depend on types. Such types are called *type operators* and they allow us to write type-level functions, such as `List :: Type -> Type`, which takes a type `a` and returns the type of lists of `a`.
 
@@ -133,10 +133,10 @@ The most famous type systems here are:
 - *$lambda$$arrow$* (simply typed lambda calculus): only non-dependent function types, no polymorphism or type operators. Roughly like C (although C is not modelled by the lambda calculus)
 - *$lambda$$2$* (System F): adds parametric polymorphism, allowing for generic functions. Roughly like Java/C\#/oCaml.
 - *$lambda$$omega$*: supports higher-kinded types, allowing for type operators. This is where Scala lives.
-- *$lambda$$omega$$2$* (System F$omega$): has universal polymorphism (you can abstract over both types and type operators). This is famously the basis of Haskell's type system.
-- *$lambda$$omega$P2* (Calculus of Constructions): adds dependent types, allowing for types that depend on terms. Rocq, Agda, Lean and Idris are all based on this.
+- *$lambda$$omega$$2$* (System F$omega$): introduces universal polymorphism (you can abstract over both types and type operators). This is famously the basis of Haskell's type system.
+- *$lambda$$omega$P2* (Calculus of Constructions): has fully dependent types, allowing for types that depend on terms. Rocq, Agda, Lean and Idris are all based on this.
 
-So, there are two axis of the expressivity of types that would allow for richer propositions. The z-axis allows us to talk about other propositions and operate on them. This is higher-order logic! Great, now we can talk about sets of sets, properties of properties, etc.
+So, there are two axes of the expressiveness of types that would allow for the richer propositions we were talking about. The z-axis allows us to talk about other propositions and operate on them. This is higher-order logic! Great, now we can talk about sets of sets, properties of properties, etc.
 
 The x-axis allows us to talk about properties of values. This is what allows us to express the claim "this vector has length 3" as a type. Here is where the fun stuff happens, because we can now express properties of our programs as types and get the compiler to check them for us. For example, we can write a function `head :: Vec a (n + 1) -> a`, which takes a non-empty vector and returns its head. The type of this function guarantees that it will never be called on an empty vector, thus preventing a common source of runtime errors.
 
@@ -150,7 +150,7 @@ Which reads roughly as "for all strings `s1` and `s2`, if `encrypt s1` is equal 
 
 And `∀ (s1 s2 : String), encrypt s1 = encrypt s2 → s1 = s2` is a type. We could create a term of that type, which would be a proof of that claim. If the claim is false, then there is no term of that type and the compiler will reject our program.
 
-The compiler becomes a proof checker and we can get very strong guarantees about our code. If we are to ever mess up in the implementation of `encrypt`, we won't be able to produce a proof of `encrypt_injective` and the compiler will tell us that our program is not correct. Instead of relying on unit tests which couldn't possibly cover all cases, we can get a mathematical proof that our program satisfies certain properties by reasoning about it in a purely functional way.
+The compiler becomes a proof checker and we can get very strong guarantees about our code. If we are to ever mess up in the implementation of `encrypt`, we won't be able to produce a proof of `encrypt_injective` and the compiler will tell us that our program is not correct. Instead of relying on testing (which is limited and can never provide full confidence) or code reviews (which are subjective and can miss important issues), we can get a mathematical proof that our program satisfies certain properties by reasoning about it in a purely functional way. The extent we can trust these proofs is the extent we can trust the compiler's type checker. Lean, Agda and Idris have very trustworthy minimal kernels that have been scrutinized by the community for years, so we can be very confident in the correctness of our proofs in such languages, meaning that if we can construct a proof of a claim about our program, we can be very confident that the claim is true.
 
 #heading(level: 1)[
   Logic
