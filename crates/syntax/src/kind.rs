@@ -42,19 +42,25 @@ pub enum SyntaxKind {
     ColonColon,
     #[static_text("->")]
     RArrow,
+    #[static_text("|")]
+    Pipe,
 
     Unknown,
 
     DefKw,
     LetKw,
+    InductiveKw,
 
     // === Nodes ===
     SourceFile,
     DefDecl,
+    InductiveDecl,
+    InductiveConstructors,
+    ConstructorDecl,
     ParenBinder,
     BraceBinder,
     BracketBinder,
-    DefReturnType,
+    ReturnType,
     Name,
     PathSegment,
     PiType,
@@ -83,11 +89,14 @@ impl SyntaxKind {
             TokenKind::Semicolon => Self::Semicolon,
             TokenKind::Comma => Self::Comma,
             TokenKind::Dot => Self::Dot,
+            TokenKind::Pipe => Self::Pipe,
             TokenKind::DefEq => Self::DefEq,
             TokenKind::Unknown => Self::Unknown,
             TokenKind::DefKw => Self::DefKw,
             TokenKind::LetKw => Self::LetKw,
+            TokenKind::InductiveKw => Self::InductiveKw,
             TokenKind::Colon => Self::Colon,
+            TokenKind::ColonColon => Self::ColonColon,
             TokenKind::Eof => unreachable!("Eof never reaches the syntax tree"),
         }
     }

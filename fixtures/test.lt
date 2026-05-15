@@ -1,0 +1,17 @@
+inductive Boolean : Type :=
+      True : Boolean
+    | False : Boolean;
+
+def hello : Boolean := {}
+
+def hello_world (hello : Boolean) (world : Boolean) : Boolean := {}
+
+def foo : Boolean := 5
+
+def world : hello::Boolean := 5
+
+def stmts : Boolean := {
+    let x := 5;
+    let y := 10;
+    x := 10;
+}

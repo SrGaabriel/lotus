@@ -148,11 +148,13 @@ fn token_accessor(text: &str) -> Result<String> {
         ":" => "colon",
         "::" => "colon_colon",
         ":=" => "def_eq",
+        "|" => "pipe",
         "ident" => "ident",
         "number_lit" => "number_lit",
         "string_lit" => "string_lit",
         "def" => "def_kw",
         "let" => "let_kw",
+        "inductive" => "inductive_kw",
         other => anyhow::bail!("no token accessor mapping for token `{other}`"),
     };
     Ok(base.into())
@@ -172,11 +174,13 @@ fn token_kind(text: &str) -> Result<String> {
         ":" => "Colon",
         ":=" => "DefEq",
         "::" => "ColonColon",
+        "|" => "Pipe",
         "ident" => "Identifier",
         "number_lit" => "NumberLit",
         "string_lit" => "StringLit",
         "def" => "DefKw",
         "let" => "LetKw",
+        "inductive" => "InductiveKw",
         other => anyhow::bail!("no SyntaxKind mapping for token `{other}`"),
     }
     .into())

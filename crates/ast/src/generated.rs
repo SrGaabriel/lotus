@@ -44,7 +44,7 @@ impl DefDecl {
     pub fn params(&self) -> AstChildren<'_, Binder> {
         children(&self.0)
     }
-    pub fn return_type(&self) -> Option<DefReturnType> {
+    pub fn return_type(&self) -> Option<ReturnType> {
         child(&self.0)
     }
     pub fn def_eq(&self) -> Option<ResolvedToken> {
@@ -78,10 +78,10 @@ impl Identifier {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
-pub struct DefReturnType(ResolvedNode);
-impl AstNode for DefReturnType {
+pub struct ReturnType(ResolvedNode);
+impl AstNode for ReturnType {
     fn can_cast(k: SyntaxKind) -> bool {
-        k == SyntaxKind::DefReturnType
+        k == SyntaxKind::ReturnType
     }
     fn cast(node: ResolvedNode) -> Option<Self> {
         Self::can_cast(node.kind()).then_some(Self(node))
@@ -90,11 +90,98 @@ impl AstNode for DefReturnType {
         &self.0
     }
 }
-impl DefReturnType {
+impl ReturnType {
     pub fn colon(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::Colon)
     }
     pub fn r#type(&self) -> Option<Type> {
+        child(&self.0)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct InductiveDecl(ResolvedNode);
+impl AstNode for InductiveDecl {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::InductiveDecl
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl InductiveDecl {
+    pub fn inductive_kw(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::InductiveKw)
+    }
+    pub fn ident(&self) -> Option<Identifier> {
+        child(&self.0)
+    }
+    pub fn params(&self) -> AstChildren<'_, Binder> {
+        children(&self.0)
+    }
+    pub fn return_type(&self) -> Option<ReturnType> {
+        child(&self.0)
+    }
+    pub fn def_eq(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::DefEq)
+    }
+    pub fn inductive_constructors(&self) -> Option<InductiveConstructors> {
+        child(&self.0)
+    }
+    pub fn semicolon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Semicolon)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct InductiveConstructors(ResolvedNode);
+impl AstNode for InductiveConstructors {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::InductiveConstructors
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl InductiveConstructors {
+    pub fn head(&self) -> Option<ConstructorDecl> {
+        child(&self.0)
+    }
+    pub fn pipe(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Pipe)
+    }
+    pub fn constructor_decl(&self) -> AstChildren<'_, ConstructorDecl> {
+        children(&self.0)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct ConstructorDecl(ResolvedNode);
+impl AstNode for ConstructorDecl {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::ConstructorDecl
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl ConstructorDecl {
+    pub fn ident(&self) -> Option<Identifier> {
+        child(&self.0)
+    }
+    pub fn params(&self) -> AstChildren<'_, Binder> {
+        children(&self.0)
+    }
+    pub fn return_type(&self) -> Option<ReturnType> {
         child(&self.0)
     }
 }

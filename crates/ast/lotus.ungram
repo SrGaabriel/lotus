@@ -5,9 +5,18 @@ Decl =
   DefDecl
 
 DefDecl =
-  'def' ident:Identifier params:Binder* return_type:DefReturnType ':=' body:Expr
+  'def' ident:Identifier params:Binder* return_type:ReturnType ':=' body:Expr
 
-DefReturnType =
+InductiveDecl =
+  'inductive' ident:Identifier params:Binder* return_type:ReturnType ':=' InductiveConstructors ';'
+
+InductiveConstructors =
+  head:ConstructorDecl ('|' ConstructorDecl)*
+
+ConstructorDecl =
+  ident:Identifier params:Binder* return_type:ReturnType
+
+ReturnType =
   ':' Type
 
 Expr =

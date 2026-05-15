@@ -3,8 +3,7 @@ use clap::{
     Subcommand,
 };
 use diagnostics::{
-    files::FilesCache,
-    render::render,
+    Diagnostic, files::FilesCache, render::render
 };
 use driver::Compiler;
 use elaborator::core::debug::debug_file;
@@ -53,6 +52,9 @@ fn main() -> anyhow::Result<()> {
                 let parse = compiler.parse(file);
                 let root = parse.syntax_node();
                 println!("Syntax tree: {root:#?}");
+                let diags = compiler.parsing_diagnostics(file);
+                print_diagnostics(&mut cache, &diags);
+                return Ok(());
             }
             Commands::Elaborate { .. } => {
                 let elaborated = compiler.dbg_elaborate(file);
@@ -61,14 +63,18 @@ fn main() -> anyhow::Result<()> {
             }
         }
         let diagnostics = compiler.diagnostics(file);
-        if diagnostics.is_empty() {
-            println!("No diagnostics found!");
-        } else {
-            println!("Found {} diagnostics:", diagnostics.len());
-            for diagnostic in &diagnostics {
-                render(&mut cache, diagnostic);
-            }
-        }
+        print_diagnostics(&mut cache, &diagnostics);
     }
     Ok(())
+}
+
+fn print_diagnostics(cache: &mut FilesCache, diagnostics: &Vec<Diagnostic>) {
+    if diagnostics.is_empty() {
+        println!("No diagnostics found!");
+    } else {
+        println!("Found {} diagnostics:", diagnostics.len());
+        for diagnostic in diagnostics {
+            render(cache, diagnostic);
+        }
+    }
 }

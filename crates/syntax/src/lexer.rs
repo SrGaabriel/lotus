@@ -14,6 +14,7 @@ pub enum TokenKind {
 
     DefKw,
     LetKw,
+    InductiveKw,
 
     Number,
 
@@ -29,6 +30,8 @@ pub enum TokenKind {
     Dot,
     DefEq,
     Colon,
+    ColonColon,
+    Pipe,
 
     Unknown,
     Eof,
@@ -47,6 +50,7 @@ impl TokenKind {
             Self::Identifier => "identifier",
             Self::OpIdentifier => "operator identifier",
             Self::DefKw => "'def'",
+            Self::InductiveKw => "'inductive'",
             Self::LetKw => "'let'",
             Self::Number => "number",
             Self::LParen => "'('",
@@ -60,6 +64,8 @@ impl TokenKind {
             Self::Dot => "'.'",
             Self::DefEq => "':='",
             Self::Colon => "':'",
+            Self::ColonColon => "'::'",
+            Self::Pipe => "'|'",
             Self::Unknown => "unknown token",
             Self::Eof => "end of file",
         }
@@ -180,10 +186,18 @@ impl<'a> Cursor<'a> {
                 '*' => self.block_comment(),
                 _ => unreachable!(),
             },
-            ':' if self.first() == '=' => {
-                self.bump();
-                TokenKind::DefEq
-            }
+            ':' => match self.first() {
+                '=' => {
+                    self.bump();
+                    TokenKind::DefEq
+                }
+                ':' => {
+                    self.bump();
+                    TokenKind::ColonColon
+                }
+                _ => TokenKind::Colon,
+            },
+            '|' => TokenKind::Pipe,
 
             c if is_id_start(c) => return self.ident(c),
             c if is_op_char(c) => return self.op_ident(),
@@ -202,7 +216,6 @@ impl<'a> Cursor<'a> {
             ';' => TokenKind::Semicolon,
             ',' => TokenKind::Comma,
             '.' => TokenKind::Dot,
-            ':' => TokenKind::Colon,
 
             _ => TokenKind::Unknown,
         };
@@ -253,6 +266,7 @@ impl<'a> Cursor<'a> {
         let kind = match &*ident {
             "def" => TokenKind::DefKw,
             "let" => TokenKind::LetKw,
+            "inductive" => TokenKind::InductiveKw,
             _ => TokenKind::Identifier,
         };
         let len = self.pos_in_token();

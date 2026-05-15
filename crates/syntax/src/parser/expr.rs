@@ -178,9 +178,21 @@ impl Parser<'_> {
 
     pub fn parse_type(&mut self, recovery: TokenSet) {
         let m = self.start();
-        let ident = self.start();
-        self.expect_recover(TokenKind::Identifier, recovery);
-        ident.complete(self, SyntaxKind::Identifier);
+        loop {
+            if let Some(forthcoming) = self.peek_nth(1) && forthcoming.kind == TokenKind::ColonColon {
+                let ps = self.start();
+                let ident = self.start();
+                self.expect_recover(TokenKind::Identifier, recovery);
+                ident.complete(self, SyntaxKind::Identifier);
+                self.bump();
+                ps.complete(self, SyntaxKind::PathSegment);
+            } else {
+                let ident = self.start();
+                self.expect_recover(TokenKind::Identifier, recovery);
+                ident.complete(self, SyntaxKind::Identifier);
+                break;
+            }
+        }
         m.complete(self, SyntaxKind::Name);
     }
 }

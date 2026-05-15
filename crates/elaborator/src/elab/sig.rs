@@ -8,7 +8,6 @@ use crate::{
     },
     elab::{
         ctx::ElabCtx,
-        meta::MetaOrigin,
     },
     ids::{
         ItemId,
@@ -34,9 +33,9 @@ pub fn signature<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Signature
         ItemKind::Def => match source.decl().nth(item.ast_index(db) as usize) {
             Some(ast::Decl::DefDecl(decl)) => match decl.return_type().and_then(|r| r.r#type()) {
                 Some(ret_ty) => cx.lower_type(ret_ty),
-                None => cx.error_mvar(&MetaOrigin::Error("missing return type".to_owned())),
+                None => cx.error_mvar(),
             },
-            _ => cx.error_mvar(&MetaOrigin::Error("expected a definition".to_owned())),
+            _ => cx.error_mvar(),
         },
     };
     tracing::info!(

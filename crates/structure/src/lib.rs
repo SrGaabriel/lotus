@@ -3,7 +3,7 @@ use std::path::{
     PathBuf,
 };
 
-pub const EXTENSION: &str = "lo";
+pub const EXTENSION: &str = "lt";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum Edition {

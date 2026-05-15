@@ -127,6 +127,13 @@ impl Compiler {
         out
     }
 
+    pub fn parsing_diagnostics(&self, file: SourceFile) -> Vec<Diagnostic> {
+        parse_file::accumulated::<Diagnostic>(&self.db, file)
+            .into_iter()
+            .cloned()
+            .collect()
+    }
+
     pub fn cancellation_token(&self) -> CancellationToken {
         self.db.cancellation_token()
     }

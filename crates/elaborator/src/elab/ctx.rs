@@ -1,5 +1,10 @@
-use diagnostics::Diagnostic;
+use ast::traits::AstNode;
+use diagnostics::{
+    Diagnostic,
+    builder::DiagnosticBuilder,
+};
 use salsa::Accumulator;
+use text_size::TextRange;
 
 use crate::{
     Db,
@@ -10,12 +15,9 @@ use crate::{
         TermArena,
         TermId,
     },
-    elab::{
-        local::{
-            LocalBinder,
-            LocalCtx,
-        },
-        meta::MetaOrigin,
+    elab::local::{
+        LocalBinder,
+        LocalCtx,
     },
     env::Namespace,
     ids::{
@@ -75,24 +77,34 @@ impl<'db> ElabCtx<'db> {
     pub fn lower_type(&mut self, ty: ast::Type) -> TermId {
         match ty {
             ast::Type::Name(name) => {
-                let path: Vec<Symbol> = name
+                let (path_strs, path): (Vec<String>, Vec<Symbol>) = name
                     .path()
-                    .filter_map(|seg| {
-                        seg.identifier()?
-                            .text()
-                            .map(|t| Symbol::from_str(self.db, t))
+                    .map(|seg| {
+                        let text: String = seg.identifier()
+                            .and_then(|s| s.text().map(str::to_owned))
+                            .unwrap_or_else(|| "<unknown>".to_owned());
+                        let symbol = Symbol::from_str(self.db, &text);
+                        (text, symbol)
                     })
-                    .collect();
+                    .unzip();
                 let member = name.member();
-                let Some(member_text) = member.as_ref().and_then(|m| m.text()) else {
-                    return self
-                        .error_mvar(&MetaOrigin::Error("expected a member name".to_string()));
+                let Some(member_txt) = member.as_ref().and_then(|m| m.text()) else {
+                    return self.error_mvar();
                 };
 
-                let member = Symbol::from_str(self.db, member_text);
-                match self.namespace.resolve(self.db, &path, member) {
-                    Some(item) => self.arena.alloc_term(Term::Const(item)),
-                    None => self.error_mvar(&MetaOrigin::Error("unresolved name".to_string())),
+                let member = Symbol::from_str(self.db, member_txt);
+                if let Some(item) = self.namespace.resolve(self.db, &path, member) {
+                    self.arena.alloc_term(Term::Const(item))
+                } else {
+                    let path_txt = path_strs.into_iter().map(|w| w + "::").collect::<String>();
+                    let diag = self
+                        .mk_error(
+                            name.syntax().text_range(),
+                            &format!("unresolved name '{path_txt}{member_txt}'"),
+                        )
+                        .build();
+                    self.diagnostic(diag);
+                    self.error_mvar()
                 }
             }
             ast::Type::PiType(_) => {
@@ -101,8 +113,7 @@ impl<'db> ElabCtx<'db> {
         }
     }
 
-    pub fn error_mvar(&mut self, origin: &MetaOrigin) -> TermId {
-        tracing::error!("encountered error metavariable: {origin:?}");
+    pub fn error_mvar(&mut self) -> TermId {
         let u = self.gen_.fresh();
         self.arena.alloc_term(Term::MVar(u))
     }
@@ -113,5 +124,10 @@ impl<'db> ElabCtx<'db> {
 
     pub fn placeholder(&mut self) -> TermId {
         self.arena.type0()
+    }
+
+    pub fn mk_error(&mut self, range: TextRange, message: &str) -> DiagnosticBuilder {
+        let file = self.current_decl.file(self.db);
+        Diagnostic::error(message, file, range)
     }
 }
