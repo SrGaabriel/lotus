@@ -1,5 +1,6 @@
 pub mod ctx;
 pub mod def;
+pub mod inductive;
 pub mod local;
 pub mod meta;
 pub mod sig;
@@ -24,6 +25,10 @@ pub fn elaborate_decl<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) {
         ItemKind::Def => {
             let _ = db.def_body(item);
         }
+        ItemKind::Inductive => {
+            let _ = db.inductive_data(item);
+        }
+        ItemKind::Constructor => {}
     }
 }
 

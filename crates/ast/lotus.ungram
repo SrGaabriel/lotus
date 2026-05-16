@@ -2,7 +2,7 @@ SourceFile =
   Decl*
 
 Decl =
-  DefDecl
+  DefDecl | InductiveDecl
 
 DefDecl =
   'def' ident:Identifier params:Binder* return_type:ReturnType ':=' body:Expr
@@ -11,7 +11,7 @@ InductiveDecl =
   'inductive' ident:Identifier params:Binder* return_type:ReturnType ':=' InductiveConstructors ';'
 
 InductiveConstructors =
-  head:ConstructorDecl ('|' ConstructorDecl)*
+  ConstructorDecl ('|' ConstructorDecl)*
 
 ConstructorDecl =
   ident:Identifier params:Binder* return_type:ReturnType

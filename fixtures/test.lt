@@ -6,9 +6,9 @@ def hello : Boolean := {}
 
 def hello_world (hello : Boolean) (world : Boolean) : Boolean := {}
 
-def foo : Boolean := 5
+def foo : Boolean := True
 
-def world : hello::Boolean := 5
+def world : Boolean := 5
 
 def stmts : Boolean := {
     let x := 5;

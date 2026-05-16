@@ -91,6 +91,9 @@ impl<'db> ElabCtx<'db> {
                 let Some(member_txt) = member.as_ref().and_then(|m| m.text()) else {
                     return self.error_mvar();
                 };
+                if member_txt == "Type" && path.is_empty() {
+                    return self.arena.type0();
+                }
 
                 let member = Symbol::from_str(self.db, member_txt);
                 if let Some(item) = self.namespace.resolve(self.db, &path, member) {

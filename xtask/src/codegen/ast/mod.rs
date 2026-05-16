@@ -57,11 +57,39 @@ pub fn lower(grammar: &Grammar) -> Result<AstSrc> {
         } else {
             let mut fields = Vec::new();
             lower_rule(grammar, &data.rule, None, &mut fields, &mut tokens)?;
+            merge_duplicate_fields(&mut fields);
             nodes.push(AstNodeSrc { name, fields });
         }
     }
 
     Ok(AstSrc { nodes, enums })
+}
+
+fn merge_duplicate_fields(fields: &mut Vec<Field>) {
+    let mut i = 0;
+    while i < fields.len() {
+        let (i_name, i_is_node) = match &fields[i] {
+            Field::Node { name, .. } => (name.clone(), true),
+            Field::Token { name, .. } => (name.clone(), false),
+        };
+        let mut j = i + 1;
+        while j < fields.len() {
+            let dup = match &fields[j] {
+                Field::Node { name, .. } if i_is_node => name == &i_name,
+                Field::Token { name, .. } if !i_is_node => name == &i_name,
+                _ => false,
+            };
+            if dup {
+                fields.remove(j);
+                if let Field::Node { cardinality, .. } = &mut fields[i] {
+                    *cardinality = Cardinality::Many;
+                }
+            } else {
+                j += 1;
+            }
+        }
+        i += 1;
+    }
 }
 
 fn lower_alt_of_nodes(grammar: &Grammar, rule: &Rule) -> Option<Vec<String>> {

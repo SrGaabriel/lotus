@@ -51,6 +51,8 @@ impl UniqueGen {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Update)]
 pub enum ItemKind {
     Def,
+    Inductive,
+    Constructor,
 }
 
 #[salsa::tracked(debug)]
@@ -59,12 +61,15 @@ pub struct ItemId<'db> {
     pub name: Symbol<'db>,
     pub ast_index: u32,
     pub kind: ItemKind,
+    pub parent: Option<ItemId<'db>>,
 }
 
 impl Display for ItemKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ItemKind::Def => write!(f, "def"),
+            ItemKind::Inductive => write!(f, "inductive"),
+            ItemKind::Constructor => write!(f, "ctor"),
         }
     }
 }

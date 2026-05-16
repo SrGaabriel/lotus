@@ -124,9 +124,17 @@ impl Parser<'_> {
 
     pub fn parse_name_expr(&mut self, recovery: TokenSet) {
         let m = self.start();
-        let ident = self.start();
+        let head = self.start();
         self.expect_recover(TokenKind::Identifier, recovery);
-        ident.complete(self, SyntaxKind::Identifier);
+        head.complete(self, SyntaxKind::Identifier);
+        while self.at(TokenKind::ColonColon) {
+            let ps = self.start();
+            self.bump();
+            let ident = self.start();
+            self.expect_recover(TokenKind::Identifier, recovery);
+            ident.complete(self, SyntaxKind::Identifier);
+            ps.complete(self, SyntaxKind::PathSegment);
+        }
         m.complete(self, SyntaxKind::Name);
     }
 

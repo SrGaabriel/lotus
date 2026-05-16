@@ -13,6 +13,7 @@ pub use crate::{
         Signature,
         elaborate_decl,
         elaborate_file,
+        inductive::InductiveData,
     },
     env::DefBody,
     ids::{
@@ -37,6 +38,7 @@ pub struct ElaboratedItem<'db> {
     pub id: ItemId<'db>,
     pub signature: &'db Signature<'db>,
     pub def_body: Option<&'db DefBody<'db>>,
+    pub inductive_data: Option<&'db InductiveData<'db>>,
 }
 
 impl Debug for ElaboratedFile<'_> {
@@ -70,6 +72,7 @@ pub trait ElabDb<'db> {
     fn def_map(self, file: SourceFile) -> Namespace<'db>;
     fn signature(self, item: ItemId<'db>) -> &'db Signature<'db>;
     fn def_body(self, item: ItemId<'db>) -> &'db DefBody<'db>;
+    fn inductive_data(self, item: ItemId<'db>) -> &'db InductiveData<'db>;
     fn elaborate_decl(self, item: ItemId<'db>);
     fn elaborate_file(self, file: SourceFile);
     fn dbg_elaborate_file(self, file: SourceFile) -> ElaboratedFile<'db>;
@@ -96,6 +99,10 @@ impl<'db> ElabDb<'db> for Db<'db> {
         elab::def::def_body(self, item)
     }
 
+    fn inductive_data(self, item: ItemId<'db>) -> &'db InductiveData<'db> {
+        elab::inductive::inductive_data(self, item)
+    }
+
     fn elaborate_decl(self, item: ItemId<'db>) {
         elab::elaborate_decl(self, item);
     }
@@ -114,11 +121,17 @@ impl<'db> ElabDb<'db> for Db<'db> {
                 let signature = self.signature(id);
                 let def_body = match id.kind(self) {
                     ItemKind::Def => Some(self.def_body(id)),
+                    _ => None,
+                };
+                let inductive_data = match id.kind(self) {
+                    ItemKind::Inductive => Some(self.inductive_data(id)),
+                    _ => None,
                 };
                 ElaboratedItem {
                     id,
                     signature,
                     def_body,
+                    inductive_data,
                 }
             })
             .collect();

@@ -8,14 +8,17 @@ use crate::{
     },
 };
 
+pub type SymbolMap<'db, T> = FxHashMap<Symbol<'db>, T>;
+pub type ItemMap<'db> = SymbolMap<'db, ItemId<'db>>;
+
 #[salsa::tracked]
 pub struct Namespace<'db> {
     #[tracked]
     #[returns(ref)]
-    pub decls: FxHashMap<Symbol<'db>, ItemId<'db>>,
+    pub decls: ItemMap<'db>,
     #[tracked]
     #[returns(ref)]
-    pub children: FxHashMap<Symbol<'db>, Namespace<'db>>,
+    pub children: SymbolMap<'db, Namespace<'db>>,
 }
 
 impl<'db> Namespace<'db> {
