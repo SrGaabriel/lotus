@@ -1,3 +1,4 @@
+@[lang "type.bool"]
 inductive Boolean : Type :=
       True : Boolean
     | False : Boolean;

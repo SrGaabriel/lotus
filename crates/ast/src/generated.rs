@@ -35,6 +35,9 @@ impl AstNode for DefDecl {
     }
 }
 impl DefDecl {
+    pub fn attribute(&self) -> AstChildren<'_, Attribute> {
+        children(&self.0)
+    }
     pub fn def_kw(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::DefKw)
     }
@@ -69,6 +72,9 @@ impl AstNode for InductiveDecl {
     }
 }
 impl InductiveDecl {
+    pub fn attribute(&self) -> AstChildren<'_, Attribute> {
+        children(&self.0)
+    }
     pub fn inductive_kw(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::InductiveKw)
     }
@@ -89,6 +95,37 @@ impl InductiveDecl {
     }
     pub fn semicolon(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::Semicolon)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct Attribute(ResolvedNode);
+impl AstNode for Attribute {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::Attribute
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl Attribute {
+    pub fn at(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::At)
+    }
+    pub fn l_bracket(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::LBracket)
+    }
+    pub fn identifier(&self) -> Option<Identifier> {
+        child(&self.0)
+    }
+    pub fn literal(&self) -> Option<Literal> {
+        child(&self.0)
+    }
+    pub fn r_bracket(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::RBracket)
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

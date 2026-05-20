@@ -5,11 +5,13 @@ use crate::{
     parser::{
         Parser,
         expr::EXPR_FIRST,
+        marker::Marker,
     },
 };
 use diagnostics::Severity;
 
-pub const DECL_FIRST: TokenSet = TokenSet::new(&[TokenKind::DefKw, TokenKind::InductiveKw]);
+pub const DECL_FIRST: TokenSet =
+    TokenSet::new(&[TokenKind::DefKw, TokenKind::InductiveKw, TokenKind::At]);
 
 impl Parser<'_> {
     pub fn at_decl_start(&self) -> bool {
@@ -37,16 +39,24 @@ impl Parser<'_> {
 
     pub fn parse_decl(&mut self) {
         debug_assert!(self.at_decl_start());
+        let m = self.start();
+
+        while self.at(TokenKind::At) {
+            self.parse_attr();
+        }
+
         let peek = self.current();
         match peek {
-            TokenKind::DefKw => self.parse_def_decl(),
-            TokenKind::InductiveKw => self.parse_inductive_decl(),
-            _ => unreachable!(),
+            TokenKind::DefKw => self.parse_def_decl(m),
+            TokenKind::InductiveKw => self.parse_inductive_decl(m),
+            _ => {
+                self.error_expected("a declaration (`def` or `inductive`)", DECL_FIRST);
+                m.complete(self, SyntaxKind::Error);
+            }
         }
     }
 
-    pub fn parse_def_decl(&mut self) {
-        let m = self.start();
+    pub fn parse_def_decl(&mut self, m: Marker) {
         self.bump_remap(SyntaxKind::DefKw);
 
         let name = self.start();
@@ -96,8 +106,7 @@ impl Parser<'_> {
         m.complete(self, SyntaxKind::DefDecl);
     }
 
-    pub fn parse_inductive_decl(&mut self) {
-        let m = self.start();
+    pub fn parse_inductive_decl(&mut self, m: Marker) {
         self.bump_remap(SyntaxKind::InductiveKw);
 
         let name = self.start();
@@ -108,24 +117,19 @@ impl Parser<'_> {
         }
         name.complete(self, SyntaxKind::Identifier);
 
-        self.with_help(
-            "binders must be declared before the `:=`",
-            |p| {
-                while p.at(TokenKind::LParen)
-                    || p.at(TokenKind::LBrace)
-                    || p.at(TokenKind::LBracket)
-                {
-                    p.parse_binder(DECL_FIRST);
-                }
-            },
-        );
+        self.with_help("binders must be declared before the `:=`", |p| {
+            while p.at(TokenKind::LParen) || p.at(TokenKind::LBrace) || p.at(TokenKind::LBracket) {
+                p.parse_binder(DECL_FIRST);
+            }
+        });
         let index_recovery = DECL_FIRST
             .union(TokenSet::new(&[TokenKind::DefEq]))
             .union(EXPR_FIRST);
         let ret = self.start();
-        let colon = self.with_help("all inductive declarations need an explicit return type", |p| {
-            p.expect_recover(TokenKind::Colon, index_recovery)
-        });
+        let colon = self.with_help(
+            "all inductive declarations need an explicit return type",
+            |p| p.expect_recover(TokenKind::Colon, index_recovery),
+        );
         if colon {
             self.parse_type(index_recovery);
             ret.complete(self, SyntaxKind::ReturnType);
@@ -146,7 +150,7 @@ impl Parser<'_> {
         }
         constructors.complete(self, SyntaxKind::InductiveConstructors);
         self.expect_recover(TokenKind::Semicolon, DECL_FIRST);
-        
+
         m.complete(self, SyntaxKind::InductiveDecl);
     }
 
@@ -160,17 +164,11 @@ impl Parser<'_> {
         }
         name.complete(self, SyntaxKind::Identifier);
 
-        self.with_help(
-            "binders must be declared before the `:`",
-            |p| {
-                while p.at(TokenKind::LParen)
-                    || p.at(TokenKind::LBrace)
-                    || p.at(TokenKind::LBracket)
-                {
-                    p.parse_binder(recovery);
-                }
-            },
-        );
+        self.with_help("binders must be declared before the `:`", |p| {
+            while p.at(TokenKind::LParen) || p.at(TokenKind::LBrace) || p.at(TokenKind::LBracket) {
+                p.parse_binder(recovery);
+            }
+        });
 
         let ret_recovery = recovery.union(EXPR_FIRST);
         let ret = self.start();
@@ -185,5 +183,36 @@ impl Parser<'_> {
         }
 
         m.complete(self, SyntaxKind::ConstructorDecl);
+    }
+
+    pub fn parse_attr(&mut self) {
+        let m = self.start();
+        self.bump_remap(SyntaxKind::At);
+
+        if !self.expect_recover(TokenKind::LBracket, DECL_FIRST) {
+            m.complete(self, SyntaxKind::Attribute);
+            return;
+        }
+
+        let name = self.start();
+        if self.expect_recover(
+            TokenKind::Identifier,
+            DECL_FIRST.union(TokenSet::new(&[TokenKind::RBracket])),
+        ) {
+            name.complete(self, SyntaxKind::Identifier);
+        } else {
+            name.abandon(self);
+        }
+
+        if self.at(TokenKind::Number) || self.at(TokenKind::String) {
+            self.bump();
+        } else if !self.at(TokenKind::RBracket) {
+            let recovery = DECL_FIRST.union(TokenSet::new(&[TokenKind::RBracket]));
+            self.parse_expr(recovery);
+        }
+
+        self.expect_recover(TokenKind::RBracket, DECL_FIRST);
+
+        m.complete(self, SyntaxKind::Attribute);
     }
 }

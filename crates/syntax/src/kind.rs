@@ -44,6 +44,8 @@ pub enum SyntaxKind {
     RArrow,
     #[static_text("|")]
     Pipe,
+    #[static_text("@")]
+    At,
 
     Unknown,
 
@@ -69,6 +71,7 @@ pub enum SyntaxKind {
     BraceBlock,
     LetStmt,
     MutationStmt,
+    Attribute,
 }
 
 impl SyntaxKind {
@@ -97,6 +100,8 @@ impl SyntaxKind {
             TokenKind::InductiveKw => Self::InductiveKw,
             TokenKind::Colon => Self::Colon,
             TokenKind::ColonColon => Self::ColonColon,
+            TokenKind::At => Self::At,
+            TokenKind::String => Self::StringLit,
             TokenKind::Eof => unreachable!("Eof never reaches the syntax tree"),
         }
     }

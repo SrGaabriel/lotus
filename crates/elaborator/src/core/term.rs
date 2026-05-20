@@ -1,5 +1,6 @@
 use crate::ids::{
     ItemId,
+    Symbol,
     Unique,
 };
 
@@ -48,7 +49,7 @@ pub enum Level<'db> {
     Max(LevelId, LevelId),
     IMax(LevelId, LevelId),
     MVar(Unique),
-    Param(crate::ids::Symbol<'db>),
+    Param(Symbol<'db>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, salsa::Update)]

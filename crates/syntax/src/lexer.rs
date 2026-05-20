@@ -16,6 +16,7 @@ pub enum TokenKind {
     LetKw,
     InductiveKw,
 
+    String,
     Number,
 
     LParen,
@@ -32,6 +33,7 @@ pub enum TokenKind {
     Colon,
     ColonColon,
     Pipe,
+    At,
 
     Unknown,
     Eof,
@@ -53,6 +55,7 @@ impl TokenKind {
             Self::InductiveKw => "'inductive'",
             Self::LetKw => "'let'",
             Self::Number => "number",
+            Self::String => "string",
             Self::LParen => "'('",
             Self::RParen => "')'",
             Self::LBrace => "'{'",
@@ -66,6 +69,7 @@ impl TokenKind {
             Self::Colon => "':'",
             Self::ColonColon => "'::'",
             Self::Pipe => "'|'",
+            Self::At => "'@'",
             Self::Unknown => "unknown token",
             Self::Eof => "end of file",
         }
@@ -198,6 +202,21 @@ impl<'a> Cursor<'a> {
                 _ => TokenKind::Colon,
             },
             '|' => TokenKind::Pipe,
+            '@' => TokenKind::At,
+            '"' => {
+                while let Some(c) = self.bump() {
+                    match c {
+                        '"' => {
+                            break;
+                        }
+                        '\\' => {
+                            self.bump();
+                        }
+                        _ => {}
+                    }
+                }
+                TokenKind::String
+            }
 
             c if is_id_start(c) => return self.ident(c),
             c if is_op_char(c) => return self.op_ident(),

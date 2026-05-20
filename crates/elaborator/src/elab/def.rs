@@ -1,10 +1,7 @@
 use ast::parse_file;
 
 use crate::{
-    ElabDatabase,
-    elab::ctx::ElabCtx,
-    env::DefBody,
-    ids::ItemId,
+    ElabDatabase, ElabDb, elab::ctx::ElabCtx, env::DefBody, ids::ItemId
 };
 
 #[salsa::tracked(returns(ref))]
@@ -17,7 +14,11 @@ pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> DefBody<'d
 
     let value = match source.decl().nth(item.ast_index(db) as usize) {
         Some(ast::Decl::DefDecl(decl)) => match decl.body() {
-            Some(expr) => cx.lower_body(expr),
+            Some(expr) => {
+                let sig = db.signature(item);
+                let expected = cx.import_term(&sig.arena, sig.ty);
+                cx.check(expr, expected)
+            }
             None => cx.placeholder(),
         },
         _ => cx.placeholder(),

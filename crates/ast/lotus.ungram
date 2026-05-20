@@ -5,10 +5,10 @@ Decl =
   DefDecl | InductiveDecl
 
 DefDecl =
-  'def' ident:Identifier params:Binder* return_type:ReturnType ':=' body:Expr
+  Attribute* 'def' ident:Identifier params:Binder* return_type:ReturnType ':=' body:Expr
 
 InductiveDecl =
-  'inductive' ident:Identifier params:Binder* return_type:ReturnType ':=' InductiveConstructors ';'
+  Attribute* 'inductive' ident:Identifier params:Binder* return_type:ReturnType ':=' InductiveConstructors ';'
 
 InductiveConstructors =
   ConstructorDecl ('|' ConstructorDecl)*
@@ -72,3 +72,6 @@ NumberLit =
 
 StringLit =
   'string_lit'
+
+Attribute =
+  '@' '[' Identifier Literal? ']'
