@@ -1,6 +1,7 @@
 pub mod body;
 pub mod def_map;
 pub mod item_tree;
+pub mod lang_items;
 pub mod namespace;
 
 pub use body::DefBody;

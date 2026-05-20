@@ -1,5 +1,6 @@
 use crate::{
     Identifier,
+    StringLit,
     generated::{
         Binder,
         Type,
@@ -36,5 +37,12 @@ impl Binder {
             Self::BraceBinder(_) => BinderInfo::Implicit,
             Self::BracketBinder(_) => BinderInfo::InstanceImplicit,
         }
+    }
+}
+
+impl StringLit {
+    pub fn unquoted(&self) -> Option<&str> {
+        let text = self.text()?;
+        text.strip_prefix('"')?.strip_suffix('"')
     }
 }

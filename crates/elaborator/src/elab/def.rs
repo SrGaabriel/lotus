@@ -1,7 +1,11 @@
 use ast::parse_file;
 
 use crate::{
-    ElabDatabase, ElabDb, elab::ctx::ElabCtx, env::DefBody, ids::ItemId
+    ElabDatabase,
+    ElabDb,
+    elab::ctx::ElabCtx,
+    env::DefBody,
+    ids::ItemId,
 };
 
 #[salsa::tracked(returns(ref))]

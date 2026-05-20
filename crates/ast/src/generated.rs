@@ -121,7 +121,7 @@ impl Attribute {
     pub fn identifier(&self) -> Option<Identifier> {
         child(&self.0)
     }
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn attribute_value(&self) -> Option<AttributeValue> {
         child(&self.0)
     }
     pub fn r_bracket(&self) -> Option<ResolvedToken> {
@@ -698,6 +698,31 @@ impl AstNode for Stmt {
         match self {
             Self::LetStmt(it) => it.syntax(),
             Self::MutationStmt(it) => it.syntax(),
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AttributeValue {
+    StringLit(StringLit),
+    NumberLit(NumberLit),
+}
+impl AstNode for AttributeValue {
+    fn can_cast(k: SyntaxKind) -> bool {
+        StringLit::can_cast(k) || NumberLit::can_cast(k)
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        if let Some(it) = StringLit::cast(node.clone()) {
+            return Some(Self::StringLit(it));
+        }
+        if let Some(it) = NumberLit::cast(node.clone()) {
+            return Some(Self::NumberLit(it));
+        }
+        None
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        match self {
+            Self::StringLit(it) => it.syntax(),
+            Self::NumberLit(it) => it.syntax(),
         }
     }
 }

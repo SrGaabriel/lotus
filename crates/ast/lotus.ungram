@@ -74,4 +74,7 @@ StringLit =
   'string_lit'
 
 Attribute =
-  '@' '[' Identifier Literal? ']'
+  '@' '[' Identifier AttributeValue? ']'
+
+AttributeValue =
+  StringLit | NumberLit

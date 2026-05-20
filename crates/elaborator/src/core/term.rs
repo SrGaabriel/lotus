@@ -22,7 +22,7 @@ pub enum BinderInfo {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, salsa::Update)]
 pub enum Literal {
-    Nat(u64),
+    Number(u64),
     Str(String),
 }
 

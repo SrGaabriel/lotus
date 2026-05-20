@@ -16,6 +16,7 @@ salsa.workspace = true
 structure.workspace = true
 tracing.workspace = true
 text-size.workspace = true
+strum.workspace = true
 
 [lints]
 workspace = true

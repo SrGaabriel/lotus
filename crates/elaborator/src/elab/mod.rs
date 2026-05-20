@@ -4,6 +4,7 @@ pub mod inductive;
 pub mod local;
 pub mod meta;
 pub mod sig;
+pub mod unify;
 
 pub use sig::Signature;
 

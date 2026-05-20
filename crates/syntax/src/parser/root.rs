@@ -204,8 +204,14 @@ impl Parser<'_> {
             name.abandon(self);
         }
 
-        if self.at(TokenKind::Number) || self.at(TokenKind::String) {
+        if self.at(TokenKind::String) {
+            let v = self.start();
             self.bump();
+            v.complete(self, SyntaxKind::StringLit);
+        } else if self.at(TokenKind::Number) {
+            let v = self.start();
+            self.bump();
+            v.complete(self, SyntaxKind::NumberLit);
         } else if !self.at(TokenKind::RBracket) {
             let recovery = DECL_FIRST.union(TokenSet::new(&[TokenKind::RBracket]));
             self.parse_expr(recovery);

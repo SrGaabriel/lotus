@@ -3,6 +3,9 @@ inductive Boolean : Type :=
       True : Boolean
     | False : Boolean;
 
+@[lang "type.int32"]
+inductive Int32 : Type := MkInt32 (val : Int) : Int32;
+
 def hello : Boolean := {}
 
 def hello_world (hello : Boolean) (world : Boolean) : Boolean := {}

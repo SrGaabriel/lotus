@@ -25,6 +25,7 @@ use crate::{
     env::{
         ItemTree,
         Namespace,
+        lang_items::LanguageItems,
     },
     ids::Symbol,
 };
@@ -69,6 +70,7 @@ pub type Db<'db> = &'db dyn ElabDatabase;
 pub trait ElabDb<'db> {
     fn intern_symbol(self, text: &str) -> Symbol<'db>;
     fn item_tree(self, file: SourceFile) -> ItemTree<'db>;
+    fn lang_items(self, file: SourceFile) -> &'db LanguageItems<'db>;
     fn def_map(self, file: SourceFile) -> Namespace<'db>;
     fn signature(self, item: ItemId<'db>) -> &'db Signature<'db>;
     fn def_body(self, item: ItemId<'db>) -> &'db DefBody<'db>;
@@ -85,6 +87,10 @@ impl<'db> ElabDb<'db> for Db<'db> {
 
     fn item_tree(self, file: SourceFile) -> ItemTree<'db> {
         env::item_tree::item_tree(self, file)
+    }
+
+    fn lang_items(self, file: SourceFile) -> &'db LanguageItems<'db> {
+        env::lang_items::file_lang_items(self, file)
     }
 
     fn def_map(self, file: SourceFile) -> Namespace<'db> {

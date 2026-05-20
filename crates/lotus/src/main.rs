@@ -3,7 +3,9 @@ use clap::{
     Subcommand,
 };
 use diagnostics::{
-    Diagnostic, files::FilesCache, render::render
+    Diagnostic,
+    files::FilesCache,
+    render::render,
 };
 use driver::Compiler;
 use elaborator::core::debug::debug_file;

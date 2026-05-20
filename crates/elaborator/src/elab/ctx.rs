@@ -13,15 +13,20 @@ use crate::{
         BinderInfo,
         Level,
         LevelId,
+        Literal,
         Term,
         TermArena,
         TermId,
+        debug::write_term,
     },
     elab::local::{
         LocalBinder,
         LocalCtx,
     },
-    env::Namespace,
+    env::{
+        Namespace,
+        lang_items::LangItem,
+    },
     ids::{
         ItemId,
         Symbol,
@@ -125,26 +130,65 @@ impl<'db> ElabCtx<'db> {
     }
 
     pub fn infer(&mut self, expr: ast::Expr) -> (TermId, TermId) {
-        // match expr {
-        //     ast::Expr::Literal(lit) => {
-        //         let term = self.lower_literal(lit);
-        //         let ty = self.literal_type(lit);
-        //         (term, ty)
-        //     }
-        //     ast::Expr::Name(n) => self.infer_name(n),
-        //     ast::Expr::ParenExpr(p) => self.infer(p.expr().unwrap()),
-        //     ast::Expr::BraceBlock(b) => self.infer_block(b),
-        // }
-        (self.error_mvar(), self.error_mvar())
+        match expr {
+            ast::Expr::Literal(lit) => {
+                let term = self.lower_literal(lit.clone());
+                let ty = self.literal_type(lit);
+                (term, ty)
+            }
+            u => {
+                tracing::warn!("inference for {:?} not implemented yet", u);
+                (self.error_mvar(), self.error_mvar())
+            }
+        }
     }
 
     pub fn check(&mut self, expr: ast::Expr, expected: TermId) -> TermId {
+        let text_range = expr.syntax().text_range();
         let (term, ty) = self.infer(expr);
+        if !self.unify(term, expected) {
+            let mut expected_txt = String::new();
+            let _ = write_term(&mut expected_txt, self.db, &self.arena, expected, 0);
+            let mut found_txt = String::new();
+            let _ = write_term(&mut found_txt, self.db, &self.arena, ty, 0);
+            let diag = self
+                .mk_error(
+                    text_range,
+                    &format!("expected {expected_txt}, found {found_txt}"),
+                )
+                .build();
+            self.diagnostic(diag);
+        }
         term
     }
 
     pub fn placeholder(&mut self) -> TermId {
         self.arena.type0()
+    }
+
+    fn lower_literal(&mut self, lit: ast::Literal) -> TermId {
+        match lit {
+            ast::Literal::NumberLit(num) => {
+                let Some(value) = num.text().and_then(|s| s.parse::<u64>().ok()) else {
+                    let diag = self
+                        .mk_error(num.syntax().text_range(), "invalid number literal")
+                        .build();
+                    self.diagnostic(diag);
+                    return self.error_mvar();
+                };
+                self.arena.alloc_term(Term::Lit(Literal::Number(value)))
+            }
+            _ => todo!(),
+        }
+    }
+
+    fn literal_type(&mut self, lit: ast::Literal) -> TermId {
+        match lit {
+            ast::Literal::NumberLit(num) => {
+                self.lang_item(&LangItem::Int32, num.syntax().text_range())
+            }
+            _ => todo!(),
+        }
     }
 
     pub fn mk_error(&mut self, range: TextRange, message: &str) -> DiagnosticBuilder {
@@ -213,5 +257,17 @@ impl<'db> ElabCtx<'db> {
             Level::MVar(u) => self.arena.alloc_level(Level::MVar(*u)),
             Level::Param(s) => self.arena.alloc_level(Level::Param(*s)),
         }
+    }
+
+    pub fn lang_item(&mut self, lang_item: &LangItem, range: TextRange) -> TermId {
+        let file = self.current_decl.file(self.db);
+        let Some(item_id) = self.db.lang_items(file).get(lang_item).copied() else {
+            let diag = self
+                .mk_error(range, &format!("missing language item: {lang_item}"))
+                .build();
+            self.diagnostic(diag);
+            return self.error_mvar();
+        };
+        self.arena.alloc_term(Term::Const(item_id))
     }
 }

@@ -50,7 +50,7 @@ fn write_item(out: &mut dyn Write, db: Db<'_>, item: &ElaboratedItem<'_>) -> fmt
     Ok(())
 }
 
-fn write_term(
+pub fn write_term(
     out: &mut dyn Write,
     db: Db<'_>,
     arena: &TermArena<'_>,
@@ -176,7 +176,7 @@ fn write_level(
 
 fn write_lit(out: &mut dyn Write, lit: &Literal) -> fmt::Result {
     match lit {
-        Literal::Nat(n) => write!(out, "{n}"),
+        Literal::Number(n) => write!(out, "{n}"),
         Literal::Str(s) => write!(out, "{s:?}"),
     }
 }

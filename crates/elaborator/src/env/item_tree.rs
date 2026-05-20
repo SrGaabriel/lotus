@@ -30,27 +30,14 @@ pub fn item_tree(db: &dyn ElabDatabase, file: SourceFile) -> ItemTree<'_> {
                 let Some(symbol) = decl_symbol(db, def.ident().as_ref()) else {
                     continue;
                 };
-                items.push(ItemId::new(
-                    db,
-                    file,
-                    symbol,
-                    i as u32,
-                    ItemKind::Def,
-                    None,
-                ));
+                items.push(ItemId::new(db, file, symbol, i as u32, ItemKind::Def, None));
             }
             ast::Decl::InductiveDecl(ind) => {
                 let Some(symbol) = decl_symbol(db, ind.ident().as_ref()) else {
                     continue;
                 };
-                let inductive_id = ItemId::new(
-                    db,
-                    file,
-                    symbol,
-                    i as u32,
-                    ItemKind::Inductive,
-                    None,
-                );
+                let inductive_id =
+                    ItemId::new(db, file, symbol, i as u32, ItemKind::Inductive, None);
                 items.push(inductive_id);
 
                 if let Some(ctors) = ind.inductive_constructors() {
@@ -75,7 +62,10 @@ pub fn item_tree(db: &dyn ElabDatabase, file: SourceFile) -> ItemTree<'_> {
     ItemTree::new(db, items)
 }
 
-fn decl_symbol<'a>(db: &'a dyn ElabDatabase, ident: Option<&ast::Identifier>) -> Option<Symbol<'a>> {
+fn decl_symbol<'a>(
+    db: &'a dyn ElabDatabase,
+    ident: Option<&ast::Identifier>,
+) -> Option<Symbol<'a>> {
     let text = ident.as_ref()?.text()?;
     Some(Symbol::from_str(db, text))
 }
