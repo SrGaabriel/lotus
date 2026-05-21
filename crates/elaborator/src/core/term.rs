@@ -1,12 +1,29 @@
-use crate::ids::{
-    ItemId,
-    Symbol,
-    Unique,
+use crate::{
+    ElabDatabase,
+    ids::{
+        ItemId,
+        Symbol,
+        Unique,
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Update)]
 #[repr(transparent)]
 pub struct TermId(pub u32);
+
+impl TermId {
+    pub fn debug<'a, 'db>(
+        &self,
+        db: &'db dyn ElabDatabase,
+        arena: &'a TermArena<'db>,
+    ) -> TermDisplay<'a, 'db> {
+        TermDisplay {
+            db,
+            arena,
+            term: *self,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Update)]
 #[repr(transparent)]
@@ -39,7 +56,6 @@ pub enum Term<'db> {
     Sigma(BinderInfo, TermId, TermId),
     Let(TermId, TermId, TermId),
     Lit(Literal),
-    Unit,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, salsa::Update)]
@@ -107,6 +123,14 @@ impl<'db> TermArena<'db> {
         self.alloc_term(Term::Sort(level))
     }
 
+    pub fn mk_const(&mut self, item: ItemId<'db>) -> TermId {
+        self.alloc_term(Term::Const(item))
+    }
+
+    pub fn mk_lit(&mut self, lit: Literal) -> TermId {
+        self.alloc_term(Term::Lit(lit))
+    }
+
     pub fn type0(&mut self) -> TermId {
         let zero = self.alloc_level(Level::Zero);
         let succ = self.alloc_level(Level::Succ(zero));
@@ -122,4 +146,45 @@ pub fn uncurry(arena: &TermArena, term: TermId) -> (TermId, Vec<(BinderInfo, Ter
         current = *body;
     }
     (current, args)
+}
+
+pub struct TermDisplay<'a, 'db> {
+    pub db: &'db dyn ElabDatabase,
+    pub arena: &'a TermArena<'db>,
+    pub term: TermId,
+}
+
+impl std::fmt::Display for TermDisplay<'_, '_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let child = |id| TermDisplay {
+            db: self.db,
+            arena: self.arena,
+            term: id,
+        };
+        match self.arena.get_term(self.term) {
+            Term::BVar(i) => write!(f, "#{i}"),
+            Term::Const(d) => write!(f, "{}", d.name(self.db).text(self.db)),
+            Term::App(g, x) => write!(f, "({} {})", child(*g), child(*x)),
+            Term::Lam(info, ty, body) => {
+                write!(f, "(λ {:?} : {} => {})", info, child(*ty), child(*body))
+            }
+            Term::Pi(info, ty, body) => {
+                write!(f, "({:?} {} -> {})", info, child(*ty), child(*body))
+            }
+            Term::Sigma(info, ty, body) => {
+                write!(f, "(Σ {:?} {} , {})", info, child(*ty), child(*body))
+            }
+            Term::Let(ty, val, body) => write!(
+                f,
+                "(let : {} := {} ; {})",
+                child(*ty),
+                child(*val),
+                child(*body)
+            ),
+            Term::Sort(_) => write!(f, "Sort ?"),
+            Term::Lit(lit) => write!(f, "{lit:?}"),
+            Term::FVar(u) => write!(f, "?f{}", u.0),
+            Term::MVar(u) => write!(f, "?m{}", u.0),
+        }
+    }
 }

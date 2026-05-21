@@ -9,6 +9,7 @@ use crate::{
 
 impl ElabCtx<'_> {
     pub fn unify(&mut self, a: TermId, b: TermId) -> bool {
+        tracing::debug!("unify {} and {}", a.debug(self.db, &self.arena), b.debug(self.db, &self.arena));
         let a = self.arena.get_term(a);
         let b = self.arena.get_term(b);
 
@@ -51,7 +52,6 @@ impl ElabCtx<'_> {
                     && self.structural_eq(self.arena.get_term(*v1), self.arena.get_term(*v2))
                     && self.structural_eq(self.arena.get_term(*b1), self.arena.get_term(*b2))
             }
-            (Term::Unit, Term::Unit) => true,
             _ => false,
         }
     }

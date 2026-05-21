@@ -156,6 +156,11 @@ impl Parser<'_> {
 
     pub fn parse_constructor_decl(&mut self, recovery: TokenSet) {
         let m = self.start();
+
+        while self.at(TokenKind::At) {
+            self.parse_attr();
+        }
+
         let name = self.start();
         if !self.expect_recover(TokenKind::Identifier, recovery) {
             name.abandon(self);

@@ -13,6 +13,7 @@ use crate::{
     ElabDatabase,
     ElabDb,
     ItemId,
+    ids::ItemKind,
 };
 
 pub type LanguageItems<'db> = FxHashMap<LangItem, ItemId<'db>>;
@@ -29,6 +30,12 @@ pub enum LangItem {
     Int32,
     #[strum(serialize = "type.int64")]
     Int64,
+    #[strum(serialize = "type.str")]
+    Str,
+    #[strum(serialize = "type.unit")]
+    Unit,
+    #[strum(serialize = "constructor.unit")]
+    UnitConstructor,
 }
 
 unsafe impl salsa::Update for LangItem {
@@ -53,13 +60,29 @@ pub fn file_lang_items(db: &dyn ElabDatabase, file: db::SourceFile) -> LanguageI
     let mut lang_items = FxHashMap::default();
 
     for &id in tree.items(db) {
-        let Some(decl) = source.decl().nth(id.ast_index(db) as usize) else {
-            continue;
-        };
-
-        let attrs = match &decl {
-            ast::Decl::DefDecl(def) => def.attribute(),
-            ast::Decl::InductiveDecl(ind) => ind.attribute(),
+        let attrs: Vec<ast::Attribute> = match id.kind(db) {
+            ItemKind::Def | ItemKind::Inductive => {
+                let Some(decl) = source.decl().nth(id.ast_index(db) as usize) else {
+                    continue;
+                };
+                match &decl {
+                    ast::Decl::DefDecl(def) => def.attribute().collect(),
+                    ast::Decl::InductiveDecl(ind) => ind.attribute().collect(),
+                }
+            }
+            ItemKind::Constructor => {
+                let Some(parent) = id.parent(db) else { continue };
+                let Some(ast::Decl::InductiveDecl(ind)) =
+                    source.decl().nth(parent.ast_index(db) as usize)
+                else {
+                    continue;
+                };
+                let Some(ctors) = ind.inductive_constructors() else { continue };
+                let Some(ctor) = ctors.constructor_decl().nth(id.ast_index(db) as usize) else {
+                    continue;
+                };
+                ctor.attribute().collect()
+            }
         };
 
         for attr in attrs {

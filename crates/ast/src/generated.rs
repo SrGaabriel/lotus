@@ -209,6 +209,9 @@ impl AstNode for ConstructorDecl {
     }
 }
 impl ConstructorDecl {
+    pub fn attribute(&self) -> AstChildren<'_, Attribute> {
+        children(&self.0)
+    }
     pub fn ident(&self) -> Option<Identifier> {
         child(&self.0)
     }

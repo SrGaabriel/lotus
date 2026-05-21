@@ -66,7 +66,6 @@ pub fn write_term(
             write!(out, "Sort ")?;
             write_level(out, db, arena, *l, 11)
         }
-        Term::Unit => write!(out, "()"),
         Term::Lit(lit) => write_lit(out, lit),
         Term::App(f, x) => paren(out, prec, 10, |o| {
             write_term(o, db, arena, *f, 10)?;

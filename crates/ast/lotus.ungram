@@ -14,7 +14,7 @@ InductiveConstructors =
   ConstructorDecl ('|' ConstructorDecl)*
 
 ConstructorDecl =
-  ident:Identifier params:Binder* return_type:ReturnType
+  Attribute* ident:Identifier params:Binder* return_type:ReturnType
 
 ReturnType =
   ':' Type
