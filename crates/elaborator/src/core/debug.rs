@@ -49,12 +49,7 @@ fn write_item(out: &mut dyn Write, db: Db<'_>, item: &ElaboratedItem<'_>) -> fmt
     Ok(())
 }
 
-pub fn write_term<'db>(
-    out: &mut dyn Write,
-    db: Db<'db>,
-    term: Term<'db>,
-    prec: u8,
-) -> fmt::Result {
+pub fn write_term<'db>(out: &mut dyn Write, db: Db<'db>, term: Term<'db>, prec: u8) -> fmt::Result {
     match term.kind(db) {
         TermKind::BVar(i) => write!(out, "#{i}"),
         TermKind::FVar(u) => write!(out, "?f{}", u.0),
@@ -116,12 +111,7 @@ fn write_binder<'db>(
     out.write_str(close)
 }
 
-fn write_level<'db>(
-    out: &mut dyn Write,
-    db: Db<'db>,
-    level: Level<'db>,
-    prec: u8,
-) -> fmt::Result {
+fn write_level<'db>(out: &mut dyn Write, db: Db<'db>, level: Level<'db>, prec: u8) -> fmt::Result {
     let mut succs = 0u32;
     let mut cur = level;
     while let LevelKind::Succ(inner) = cur.kind(db) {

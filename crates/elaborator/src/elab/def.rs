@@ -1,9 +1,21 @@
-use ast::parse_file;
+use ast::{
+    parse_file,
+    traits::AstNode,
+};
 
 use crate::{
     ElabDatabase,
     ElabDb,
-    elab::ctx::ElabCtx,
+    elab::{
+        ctx::{
+            ElabCtx,
+            Frame,
+        },
+        expected::{
+            Expected,
+            ExpectedReason,
+        },
+    },
     env::DefBody,
     ids::ItemId,
 };
@@ -19,8 +31,14 @@ pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> DefBody<'d
     let value = match source.decl().nth(item.ast_index(db) as usize) {
         Some(ast::Decl::DefDecl(decl)) => match decl.body() {
             Some(expr) => {
-                let expected = db.signature(item).ty;
-                cx.check(expr, expected)
+                let ty = db.signature(item).ty;
+                let annotation = decl.return_type().map_or_else(
+                    || expr.syntax().text_range(),
+                    |ret| ret.syntax().text_range(),
+                );
+                let expected = Expected::new(ty, ExpectedReason::ReturnType { annotation });
+                let name = item.name(db);
+                cx.with_frame(Frame::DefBody { name }, |cx| cx.check(expr, &expected))
             }
             None => cx.placeholder(),
         },

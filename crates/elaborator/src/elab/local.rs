@@ -1,3 +1,5 @@
+use text_size::TextRange;
+
 use crate::{
     core::{
         BinderInfo,
@@ -16,6 +18,7 @@ pub struct LocalBinder<'db> {
     pub ty: Term<'db>,
     pub info: BinderInfo,
     pub value: Option<Term<'db>>,
+    pub origin: TextRange,
 }
 
 #[derive(Debug, Default, Clone)]

@@ -1,6 +1,7 @@
 use ast::traits::AstNode;
 use diagnostics::{
     Diagnostic,
+    Label,
     builder::DiagnosticBuilder,
 };
 use salsa::Accumulator;
@@ -16,9 +17,16 @@ use crate::{
         Literal,
         Term,
     },
-    elab::local::{
-        LocalBinder,
-        LocalCtx,
+    elab::{
+        expected::{
+            Expected,
+            ExpectedReason,
+        },
+        local::{
+            LocalBinder,
+            LocalCtx,
+        },
+        unify::UnifyError,
     },
     env::{
         Namespace,
@@ -32,6 +40,11 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone)]
+pub enum Frame<'db> {
+    DefBody { name: Symbol<'db> },
+}
+
 pub struct ElabCtx<'db> {
     pub db: Db<'db>,
     pub current_decl: ItemId<'db>,
@@ -41,6 +54,7 @@ pub struct ElabCtx<'db> {
     pub lctx: LocalCtx<'db>,
     pub namespace: Namespace<'db>,
 
+    pub frames: Vec<Frame<'db>>,
     pub erroneous_mvars: Vec<Unique>,
 }
 
@@ -54,6 +68,7 @@ impl<'db> ElabCtx<'db> {
             gen_: UniqueGen::new(),
             lctx: LocalCtx::default(),
             namespace,
+            frames: Vec::new(),
             erroneous_mvars: Vec::new(),
         }
     }
@@ -62,11 +77,31 @@ impl<'db> ElabCtx<'db> {
         diag.accumulate(self.db);
     }
 
+    pub fn with_frame<R>(&mut self, frame: Frame<'db>, body: impl FnOnce(&mut Self) -> R) -> R {
+        self.frames.push(frame);
+        let result = body(self);
+        self.frames.pop();
+        result
+    }
+
+    fn frame_notes(&self) -> Vec<String> {
+        self.frames
+            .iter()
+            .rev()
+            .map(|frame| match frame {
+                Frame::DefBody { name } => {
+                    format!("while checking the body of `{}`", name.text(self.db))
+                }
+            })
+            .collect()
+    }
+
     pub fn fresh_fvar(
         &mut self,
         name: Option<Symbol<'db>>,
         ty: Term<'db>,
         info: BinderInfo,
+        origin: TextRange,
     ) -> Unique {
         let unique = self.gen_.fresh();
         self.lctx.push(LocalBinder {
@@ -75,6 +110,7 @@ impl<'db> ElabCtx<'db> {
             ty,
             info,
             value: None,
+            origin,
         });
         unique
     }
@@ -105,43 +141,46 @@ impl<'db> ElabCtx<'db> {
                 (term, ty)
             }
             ast::Expr::Name(name) => self.resolve_name(&name),
-            ast::Expr::ParenExpr(expr) => {
-                if let Some(inner) = expr.expr() {
-                    self.infer(inner)
-                } else {
-                    (self.error_mvar(), self.error_mvar())
-                }
-            }
-            ast::Expr::BraceBlock(block) => self.lower_block(&block),
+            ast::Expr::ParenExpr(expr) => match expr.expr() {
+                Some(inner) => self.infer(inner),
+                None => (self.error_mvar(), self.error_mvar()),
+            },
+            ast::Expr::BraceBlock(block) => self.infer_block(&block),
         }
     }
 
-    pub fn check(&mut self, expr: ast::Expr, expected: Term<'db>) -> Term<'db> {
-        let text_range = expr.syntax().text_range();
-        let (term, ty) = self.infer(expr);
-        if !self.unify(ty, expected) {
-            let expected_txt = expected.debug(self.db);
-            let ty_txt = ty.debug(self.db);
-            let diag = self
-                .mk_error(
-                    text_range,
-                    &format!("expected {expected_txt}, found {ty_txt}"),
-                )
-                .build();
-            self.diagnostic(diag);
+    pub fn check(&mut self, expr: ast::Expr, expected: &Expected<'db>) -> Term<'db> {
+        if let ast::Expr::BraceBlock(block) = expr {
+            self.check_block(&block, expected)
+        } else {
+            let range = expr.syntax().text_range();
+            let (term, ty) = self.infer(expr);
+            if let Err(err) = self.unify(ty, expected.ty) {
+                self.report_mismatch(range, ty, expected, &err);
+            }
+            term
         }
-        term
     }
 
     pub fn placeholder(&mut self) -> Term<'db> {
         Term::type0(self.db)
     }
 
-    fn lower_block(&mut self, block: &ast::BraceBlock) -> (Term<'db>, Term<'db>) {
-        self.lower_stmt(block.stmt(), block.syntax().text_range())
+    fn check_block(&mut self, block: &ast::BraceBlock, expected: &Expected<'db>) -> Term<'db> {
+        let (term, _) = self.lower_stmt(block.stmt(), block.syntax().text_range(), Some(expected));
+        term
     }
 
-    fn lower_stmt<I>(&mut self, mut iter: I, range: TextRange) -> (Term<'db>, Term<'db>)
+    fn infer_block(&mut self, block: &ast::BraceBlock) -> (Term<'db>, Term<'db>) {
+        self.lower_stmt(block.stmt(), block.syntax().text_range(), None)
+    }
+
+    fn lower_stmt<I>(
+        &mut self,
+        mut iter: I,
+        range: TextRange,
+        expected: Option<&Expected<'db>>,
+    ) -> (Term<'db>, Term<'db>)
     where
         I: Iterator<Item = ast::Stmt>,
     {
@@ -152,53 +191,57 @@ impl<'db> ElabCtx<'db> {
                     .and_then(|n| n.ident())
                     .as_ref()
                     .map(|n| Symbol::from_str(self.db, n.text()));
+                let origin = let_stmt.syntax().text_range();
                 let (value, ty) = if let Some(expr) = let_stmt.expr() {
-                    tracing::debug!("expr: {:?}", expr);
                     self.infer(expr)
                 } else {
                     (self.error_mvar(), self.error_mvar())
                 };
                 let saved_lctx = self.lctx.clone();
-                tracing::debug!(
-                    "fresh fvar {:?} {}",
-                    name.map(|t| t.text(self.db).clone()),
-                    ty.debug(self.db),
-                );
-                self.fresh_fvar(name, ty, BinderInfo::Explicit);
-                let (body, body_ty) = self.lower_stmt(iter, range);
+                self.fresh_fvar(name, ty, BinderInfo::Explicit, origin);
+                let (body, body_ty) = self.lower_stmt(iter, range, expected);
                 self.lctx = saved_lctx;
-                let let_expr = Term::let_(self.db, value, body_ty, body);
+                let let_expr = Term::let_(self.db, ty, value, body);
                 (let_expr, body_ty)
             }
             Some(ast::Stmt::MutationStmt(mutation)) => {
-                let (value, _ty) = if let Some(expr) = mutation.expr() {
+                let (value, ty) = if let Some(expr) = mutation.expr() {
                     self.infer(expr)
                 } else {
                     (self.error_mvar(), self.error_mvar())
                 };
-                let (body, body_ty) = self.lower_stmt(iter, range);
-                let let_expr = Term::let_(self.db, value, body_ty, body);
+                let (body, body_ty) = self.lower_stmt(iter, range, expected);
+                let let_expr = Term::let_(self.db, ty, value, body);
                 (let_expr, body_ty)
             }
-            Some(ast::Stmt::ReturnStmt(return_)) => {
-                let (value, ty) = if let Some(expr) = return_.expr() {
-                    self.infer(expr)
-                } else {
-                    (self.error_mvar(), self.error_mvar())
-                };
-                tracing::debug!(
-                    "KIRE {} and {}",
-                    value.debug(self.db),
-                    ty.debug(self.db)
-                );
-                (value, ty)
-            }
-            None => {
-                let unit_ty = self.lang_item(&LangItem::Unit, range);
-                let unit_const = self.lang_item(&LangItem::UnitConstructor, range);
-                (unit_const, unit_ty)
-            }
+            Some(ast::Stmt::ReturnStmt(return_)) => match return_.expr() {
+                Some(expr) => {
+                    if let Some(expected) = expected {
+                        let term = self.check(expr, expected);
+                        (term, expected.ty)
+                    } else {
+                        self.infer(expr)
+                    }
+                }
+                None => self.unit_value(range, expected),
+            },
+            None => self.unit_value(range, expected),
         }
+    }
+
+    fn unit_value(
+        &mut self,
+        range: TextRange,
+        expected: Option<&Expected<'db>>,
+    ) -> (Term<'db>, Term<'db>) {
+        let unit_ty = self.lang_item(&LangItem::Unit, range);
+        let unit_const = self.lang_item(&LangItem::UnitConstructor, range);
+        if let Some(expected) = expected
+            && let Err(err) = self.unify(unit_ty, expected.ty)
+        {
+            self.report_mismatch(range, unit_ty, expected, &err);
+        }
+        (unit_const, unit_ty)
     }
 
     fn lower_literal(&mut self, lit: ast::Literal) -> Term<'db> {
@@ -275,9 +318,69 @@ impl<'db> ElabCtx<'db> {
         }
     }
 
+    fn report_mismatch(
+        &mut self,
+        range: TextRange,
+        found: Term<'db>,
+        expected: &Expected<'db>,
+        err: &UnifyError<'db>,
+    ) {
+        let expected_txt = expected.ty.debug(self.db).to_string();
+        let found_txt = found.debug(self.db).to_string();
+
+        let mut builder = self
+            .mk_error(
+                range,
+                &format!("type mismatch: expected `{expected_txt}`, found `{found_txt}`"),
+            )
+            .with_primary_message(format!("this is `{found_txt}`, expected `{expected_txt}`"));
+
+        match expected.reason {
+            ExpectedReason::ReturnType { annotation } => {
+                let label = self.mk_label(
+                    annotation,
+                    &format!("expected `{expected_txt}` because of this return type"),
+                );
+                builder = builder.with_secondary_label(label);
+            }
+            ExpectedReason::Annotation { range: ann } => {
+                let label = self.mk_label(
+                    ann,
+                    &format!("expected `{expected_txt}` because of this annotation"),
+                );
+                builder = builder.with_secondary_label(label);
+            }
+            ExpectedReason::None => {}
+        }
+
+        let (root_found, root_expected) = err.root();
+        if root_found != found || root_expected != expected.ty {
+            builder = builder.with_note(format!(
+                "the conflict is between `{}` and `{}`",
+                root_found.debug(self.db),
+                root_expected.debug(self.db)
+            ));
+        }
+
+        for note in self.frame_notes() {
+            builder = builder.with_note(note);
+        }
+
+        self.diagnostic(builder.build());
+    }
+
     pub fn mk_error(&mut self, range: TextRange, message: &str) -> DiagnosticBuilder {
         let file = self.current_decl.file(self.db);
         Diagnostic::error(message, file, range)
+    }
+
+    pub fn mk_label(&mut self, range: TextRange, message: &str) -> Label {
+        let file = self.current_decl.file(self.db);
+        Label {
+            file,
+            range,
+            message: Some(message.to_string()),
+        }
     }
 
     pub fn lang_item(&mut self, lang_item: &LangItem, range: TextRange) -> Term<'db> {

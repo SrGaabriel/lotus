@@ -8,53 +8,108 @@ use crate::{
     elab::ctx::ElabCtx,
 };
 
+#[derive(Debug, Clone)]
+pub enum UnifyError<'db> {
+    Mismatch {
+        a: Term<'db>,
+        b: Term<'db>,
+    },
+    Below {
+        a: Term<'db>,
+        b: Term<'db>,
+        cause: Box<UnifyError<'db>>,
+    },
+}
+
+impl<'db> UnifyError<'db> {
+    pub fn root(&self) -> (Term<'db>, Term<'db>) {
+        match self {
+            UnifyError::Mismatch { a, b } => (*a, *b),
+            UnifyError::Below { cause, .. } => cause.root(),
+        }
+    }
+}
+
 impl<'db> ElabCtx<'db> {
-    pub fn unify(&mut self, a: Term<'db>, b: Term<'db>) -> bool {
+    pub fn unify(&mut self, a: Term<'db>, b: Term<'db>) -> Result<(), UnifyError<'db>> {
         tracing::debug!("unify {} and {}", a.debug(self.db), b.debug(self.db));
-        self.structural_eq(a, b)
+        self.eq_term(a, b)
     }
 
-    fn structural_eq(&self, a: Term<'db>, b: Term<'db>) -> bool {
+    fn eq_term(&self, a: Term<'db>, b: Term<'db>) -> Result<(), UnifyError<'db>> {
         if a == b {
-            return true;
+            return Ok(());
         }
         match (a.kind(self.db), b.kind(self.db)) {
-            (TermKind::BVar(i), TermKind::BVar(j)) => i == j,
-            (TermKind::FVar(n1), TermKind::FVar(n2)) => n1 == n2,
-            (TermKind::MVar(u1), TermKind::MVar(u2)) => u1 == u2,
-            (TermKind::Lit(l1), TermKind::Lit(l2)) => l1 == l2,
-            (TermKind::Const(n1), TermKind::Const(n2)) => n1 == n2,
-            (TermKind::Sort(l1), TermKind::Sort(l2)) => self.structural_eq_level(*l1, *l2),
-            (TermKind::App(f1, a1), TermKind::App(f2, a2)) => {
-                self.structural_eq(*f1, *f2) && self.structural_eq(*a1, *a2)
+            (TermKind::BVar(i), TermKind::BVar(j)) if i == j => Ok(()),
+            (TermKind::FVar(u), TermKind::FVar(v)) if u == v => Ok(()),
+            (TermKind::MVar(u), TermKind::MVar(v)) if u == v => Ok(()),
+            (TermKind::Lit(l1), TermKind::Lit(l2)) if l1 == l2 => Ok(()),
+            (TermKind::Const(c1), TermKind::Const(c2)) if c1 == c2 => Ok(()),
+            (TermKind::Sort(l1), TermKind::Sort(l2)) if self.eq_level(*l1, *l2) => Ok(()),
+            (TermKind::App(f1, x1), TermKind::App(f2, x2)) => {
+                self.eq_term(*f1, *f2).map_err(|cause| UnifyError::Below {
+                    a,
+                    b,
+                    cause: Box::new(cause),
+                })?;
+                self.eq_term(*x1, *x2).map_err(|cause| UnifyError::Below {
+                    a,
+                    b,
+                    cause: Box::new(cause),
+                })?;
+                Ok(())
             }
-            (TermKind::Lam(_, ty1, b1), TermKind::Lam(_, ty2, b2))
-            | (TermKind::Pi(_, ty1, b1), TermKind::Pi(_, ty2, b2))
-            | (TermKind::Sigma(_, ty1, b1), TermKind::Sigma(_, ty2, b2)) => {
-                self.structural_eq(*ty1, *ty2) && self.structural_eq(*b1, *b2)
+            (TermKind::Lam(_, t1, b1), TermKind::Lam(_, t2, b2))
+            | (TermKind::Pi(_, t1, b1), TermKind::Pi(_, t2, b2))
+            | (TermKind::Sigma(_, t1, b1), TermKind::Sigma(_, t2, b2)) => {
+                self.eq_term(*t1, *t2).map_err(|cause| UnifyError::Below {
+                    a,
+                    b,
+                    cause: Box::new(cause),
+                })?;
+                self.eq_term(*b1, *b2).map_err(|cause| UnifyError::Below {
+                    a,
+                    b,
+                    cause: Box::new(cause),
+                })?;
+                Ok(())
             }
-            (TermKind::Let(ty1, v1, b1), TermKind::Let(ty2, v2, b2)) => {
-                self.structural_eq(*ty1, *ty2)
-                    && self.structural_eq(*v1, *v2)
-                    && self.structural_eq(*b1, *b2)
+            (TermKind::Let(t1, v1, b1), TermKind::Let(t2, v2, b2)) => {
+                self.eq_term(*t1, *t2).map_err(|cause| UnifyError::Below {
+                    a,
+                    b,
+                    cause: Box::new(cause),
+                })?;
+                self.eq_term(*v1, *v2).map_err(|cause| UnifyError::Below {
+                    a,
+                    b,
+                    cause: Box::new(cause),
+                })?;
+                self.eq_term(*b1, *b2).map_err(|cause| UnifyError::Below {
+                    a,
+                    b,
+                    cause: Box::new(cause),
+                })?;
+                Ok(())
             }
-            _ => false,
+            _ => Err(UnifyError::Mismatch { a, b }),
         }
     }
 
-    fn structural_eq_level(&self, a: Level<'db>, b: Level<'db>) -> bool {
+    fn eq_level(&self, a: Level<'db>, b: Level<'db>) -> bool {
         if a == b {
             return true;
         }
         match (a.kind(self.db), b.kind(self.db)) {
             (LevelKind::Zero, LevelKind::Zero) => true,
-            (LevelKind::Succ(a), LevelKind::Succ(b)) => self.structural_eq_level(*a, *b),
+            (LevelKind::Succ(a), LevelKind::Succ(b)) => self.eq_level(*a, *b),
             (LevelKind::Max(a1, a2), LevelKind::Max(b1, b2))
             | (LevelKind::IMax(a1, a2), LevelKind::IMax(b1, b2)) => {
-                self.structural_eq_level(*a1, *b1) && self.structural_eq_level(*a2, *b2)
+                self.eq_level(*a1, *b1) && self.eq_level(*a2, *b2)
             }
-            (LevelKind::MVar(u1), LevelKind::MVar(u2)) => u1 == u2,
-            (LevelKind::Param(u1), LevelKind::Param(u2)) => u1 == u2,
+            (LevelKind::MVar(u), LevelKind::MVar(v)) => u == v,
+            (LevelKind::Param(u), LevelKind::Param(v)) => u == v,
             _ => false,
         }
     }

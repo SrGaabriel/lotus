@@ -48,11 +48,11 @@ pub fn to_report(diagnostic: &Diagnostic) -> Report<(SourceFile, Range<usize>)> 
         }
         report = report.with_label(report_label);
     }
-    if let Some(note) = diagnostic.notes.first() {
-        report.set_note(note);
+    if !diagnostic.notes.is_empty() {
+        report.set_note(diagnostic.notes.join("\n      "));
     }
-    if let Some(help) = diagnostic.helps.first() {
-        report.set_help(help);
+    if !diagnostic.helps.is_empty() {
+        report.set_help(diagnostic.helps.join("\n      "));
     }
     report.finish()
 }
