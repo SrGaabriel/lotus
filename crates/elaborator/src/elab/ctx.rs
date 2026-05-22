@@ -13,6 +13,7 @@ use crate::{
     ElabDb,
     core::{
         BinderInfo,
+        FreeBinder,
         Level,
         Literal,
         Term,
@@ -367,6 +368,47 @@ impl<'db> ElabCtx<'db> {
         }
 
         self.diagnostic(builder.build());
+    }
+
+    pub fn elaborate_binders<I>(&mut self, binders: I) -> Vec<FreeBinder<'db>>
+    where
+        I: Iterator<Item = ast::Binder>,
+    {
+        binders.map(|b| self.elaborate_binder(&b)).collect()
+    }
+
+    pub fn elaborate_binder(&mut self, binder: &ast::Binder) -> FreeBinder<'db> {
+        let info = match binder.info() {
+            ast::BinderInfo::Implicit => BinderInfo::Implicit,
+            ast::BinderInfo::InstanceImplicit => BinderInfo::InstanceImplicit,
+            ast::BinderInfo::Explicit => BinderInfo::Explicit,
+        };
+        let binder_name = binder
+            .name()
+            .and_then(|n| n.ident())
+            .as_ref()
+            .map(|n| Symbol::from_str(self.db, n.text()));
+        let ty = if let Some(ty) = binder.ty() {
+            self.lower_type(ty)
+        } else {
+            self.error_mvar()
+        };
+
+        let unique = self.fresh_fvar(binder_name, ty, info, binder.syntax().text_range());
+        FreeBinder::new(unique, info, ty)
+    }
+
+    pub fn abstract_binders(
+        &mut self,
+        binder_fvars: &[FreeBinder<'db>],
+        body: Term<'db>,
+    ) -> Term<'db> {
+        let mut term = body;
+        for binder in binder_fvars.iter().rev() {
+            term = self.abstract_fvar(&body, binder.fvar);
+            term = Term::lam(self.db, binder.info, binder.ty, term);
+        }
+        term
     }
 
     pub fn mk_error(&mut self, range: TextRange, message: &str) -> DiagnosticBuilder {

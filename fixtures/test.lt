@@ -19,6 +19,12 @@ def stmts : Int32 := {
     let x := 5;
     let y := 10;
     x := 10;
-    let z := Boolean::True;
-    return z;
+    return x;
+}
+
+def stmts2 (test : Int32) : Int32 := {
+    let x := 5;
+    let y := 10;
+    x := 10;
+    return test;
 }

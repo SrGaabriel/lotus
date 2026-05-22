@@ -38,7 +38,9 @@ pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> DefBody<'d
                 );
                 let expected = Expected::new(ty, ExpectedReason::ReturnType { annotation });
                 let name = item.name(db);
-                cx.with_frame(Frame::DefBody { name }, |cx| cx.check(expr, &expected))
+                let free_binders = cx.elaborate_binders(decl.params());
+                let body = cx.with_frame(Frame::DefBody { name }, |cx| cx.check(expr, &expected));
+                cx.abstract_binders(&free_binders, body)
             }
             None => cx.placeholder(),
         },

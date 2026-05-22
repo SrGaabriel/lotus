@@ -173,3 +173,15 @@ impl std::fmt::Display for TermDisplay<'_> {
         }
     }
 }
+
+pub struct FreeBinder<'db> {
+    pub fvar: Unique,
+    pub info: BinderInfo,
+    pub ty: Term<'db>,
+}
+
+impl<'db> FreeBinder<'db> {
+    pub fn new(fvar: Unique, info: BinderInfo, ty: Term<'db>) -> Self {
+        Self { fvar, info, ty }
+    }
+}

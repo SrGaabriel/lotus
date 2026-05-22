@@ -87,7 +87,7 @@ pub fn write_term<'db>(out: &mut dyn Write, db: Db<'db>, term: Term<'db>, prec: 
             write_term(o, db, *ty, 0)?;
             o.write_str(" := ")?;
             write_term(o, db, *val, 0)?;
-            o.write_str("; ")?;
+            o.write_str(" in ")?;
             write_term(o, db, *body, 0)
         }),
     }
