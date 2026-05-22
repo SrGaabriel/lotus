@@ -29,13 +29,16 @@ BraceBlock =
   '{' Stmt* '}'
 
 Stmt =
-  LetStmt | MutationStmt
+  LetStmt | MutationStmt | ReturnStmt
 
 LetStmt =
   'let' name:Identifier ':=' expr:Expr ';'
 
 MutationStmt =
   name:Identifier ':=' expr:Expr ';'
+
+ReturnStmt =
+  'return' expr:Expr ';'
 
 Literal =
   NumberLit | StringLit

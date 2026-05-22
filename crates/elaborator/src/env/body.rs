@@ -1,10 +1,6 @@
-use crate::core::{
-    TermArena,
-    TermId,
-};
+use crate::core::Term;
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::Update)]
 pub struct DefBody<'db> {
-    pub arena: TermArena<'db>,
-    pub value: TermId,
+    pub value: Term<'db>,
 }

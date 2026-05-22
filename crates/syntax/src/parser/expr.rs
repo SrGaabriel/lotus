@@ -70,9 +70,10 @@ impl Parser<'_> {
         let m = self.start();
         let inner = recovery.union(EXPR_RECOVERY).union(STMT_FIRST);
         self.expect_recover(TokenKind::LBrace, inner);
-        while !self.at(TokenKind::RBrace) && !self.at(TokenKind::Eof) {
+        while !self.check_at(TokenKind::RBrace) && !self.check_at(TokenKind::Eof) {
             match self.current() {
                 TokenKind::LetKw => self.parse_let_stmt(inner),
+                TokenKind::ReturnKw => self.parse_return_stmt(inner),
                 TokenKind::Identifier => self.parse_mutation_stmt(inner),
                 _ => self.recover_until_with(
                     STMT_SYNC,
@@ -96,6 +97,14 @@ impl Parser<'_> {
     pub fn parse_mutation_stmt(&mut self, recovery: TokenSet) {
         let m = self.start();
         self.parse_assignment_tail(m, recovery, SyntaxKind::MutationStmt);
+    }
+
+    pub fn parse_return_stmt(&mut self, recovery: TokenSet) {
+        let m = self.start();
+        self.bump_remap(SyntaxKind::ReturnStmt);
+        self.parse_expr(recovery);
+        self.expect_semi(SEMI_FOLLOW, recovery);
+        m.complete(self, SyntaxKind::ReturnStmt);
     }
 
     fn parse_assignment_tail(

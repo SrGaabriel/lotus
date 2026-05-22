@@ -5,6 +5,7 @@ use diagnostics::{
 };
 use salsa::Accumulator;
 use text_size::TextRange;
+use tracing::instrument;
 
 use crate::{
     Db,
@@ -12,11 +13,8 @@ use crate::{
     core::{
         BinderInfo,
         Level,
-        LevelId,
         Literal,
         Term,
-        TermArena,
-        TermId,
     },
     elab::local::{
         LocalBinder,
@@ -38,7 +36,6 @@ pub struct ElabCtx<'db> {
     pub db: Db<'db>,
     pub current_decl: ItemId<'db>,
 
-    pub arena: TermArena<'db>,
     pub gen_: UniqueGen,
 
     pub lctx: LocalCtx<'db>,
@@ -54,7 +51,6 @@ impl<'db> ElabCtx<'db> {
         Self {
             db,
             current_decl,
-            arena: TermArena::new(),
             gen_: UniqueGen::new(),
             lctx: LocalCtx::default(),
             namespace,
@@ -69,7 +65,7 @@ impl<'db> ElabCtx<'db> {
     pub fn fresh_fvar(
         &mut self,
         name: Option<Symbol<'db>>,
-        ty: TermId,
+        ty: Term<'db>,
         info: BinderInfo,
     ) -> Unique {
         let unique = self.gen_.fresh();
@@ -83,7 +79,7 @@ impl<'db> ElabCtx<'db> {
         unique
     }
 
-    pub fn lower_type(&mut self, ty: ast::Type) -> TermId {
+    pub fn lower_type(&mut self, ty: ast::Type) -> Term<'db> {
         match ty {
             ast::Type::Name(name) => {
                 let (term, _term_ty) = self.resolve_name(&name);
@@ -95,13 +91,13 @@ impl<'db> ElabCtx<'db> {
         }
     }
 
-    pub fn error_mvar(&mut self) -> TermId {
+    pub fn error_mvar(&mut self) -> Term<'db> {
         let u = self.gen_.fresh();
         self.erroneous_mvars.push(u);
-        self.arena.alloc_term(Term::MVar(u))
+        Term::mvar(self.db, u)
     }
 
-    pub fn infer(&mut self, expr: ast::Expr) -> (TermId, TermId) {
+    pub fn infer(&mut self, expr: ast::Expr) -> (Term<'db>, Term<'db>) {
         match expr {
             ast::Expr::Literal(lit) => {
                 let term = self.lower_literal(lit.clone());
@@ -120,12 +116,12 @@ impl<'db> ElabCtx<'db> {
         }
     }
 
-    pub fn check(&mut self, expr: ast::Expr, expected: TermId) -> TermId {
+    pub fn check(&mut self, expr: ast::Expr, expected: Term<'db>) -> Term<'db> {
         let text_range = expr.syntax().text_range();
         let (term, ty) = self.infer(expr);
         if !self.unify(ty, expected) {
-            let expected_txt = expected.debug(self.db, &self.arena);
-            let ty_txt = ty.debug(self.db, &self.arena);
+            let expected_txt = expected.debug(self.db);
+            let ty_txt = ty.debug(self.db);
             let diag = self
                 .mk_error(
                     text_range,
@@ -137,32 +133,41 @@ impl<'db> ElabCtx<'db> {
         term
     }
 
-    pub fn placeholder(&mut self) -> TermId {
-        self.arena.type0()
+    pub fn placeholder(&mut self) -> Term<'db> {
+        Term::type0(self.db)
     }
 
-    fn lower_block(&mut self, block: &ast::BraceBlock) -> (TermId, TermId) {
+    fn lower_block(&mut self, block: &ast::BraceBlock) -> (Term<'db>, Term<'db>) {
         self.lower_stmt(block.stmt(), block.syntax().text_range())
     }
 
-    fn lower_stmt<I>(&mut self, mut iter: I, range: TextRange) -> (TermId, TermId)
+    fn lower_stmt<I>(&mut self, mut iter: I, range: TextRange) -> (Term<'db>, Term<'db>)
     where
         I: Iterator<Item = ast::Stmt>,
     {
         match iter.next() {
             Some(ast::Stmt::LetStmt(let_stmt)) => {
-                let _name_sym = let_stmt
+                let name = let_stmt
                     .name()
                     .and_then(|n| n.ident())
                     .as_ref()
                     .map(|n| Symbol::from_str(self.db, n.text()));
-                let (value, _ty) = if let Some(expr) = let_stmt.expr() {
+                let (value, ty) = if let Some(expr) = let_stmt.expr() {
+                    tracing::debug!("expr: {:?}", expr);
                     self.infer(expr)
                 } else {
                     (self.error_mvar(), self.error_mvar())
                 };
+                let saved_lctx = self.lctx.clone();
+                tracing::debug!(
+                    "fresh fvar {:?} {}",
+                    name.map(|t| t.text(self.db).clone()),
+                    ty.debug(self.db),
+                );
+                self.fresh_fvar(name, ty, BinderInfo::Explicit);
                 let (body, body_ty) = self.lower_stmt(iter, range);
-                let let_expr = self.arena.alloc_term(Term::Let(value, body_ty, body));
+                self.lctx = saved_lctx;
+                let let_expr = Term::let_(self.db, value, body_ty, body);
                 (let_expr, body_ty)
             }
             Some(ast::Stmt::MutationStmt(mutation)) => {
@@ -172,8 +177,21 @@ impl<'db> ElabCtx<'db> {
                     (self.error_mvar(), self.error_mvar())
                 };
                 let (body, body_ty) = self.lower_stmt(iter, range);
-                let let_expr = self.arena.alloc_term(Term::Let(value, body_ty, body));
+                let let_expr = Term::let_(self.db, value, body_ty, body);
                 (let_expr, body_ty)
+            }
+            Some(ast::Stmt::ReturnStmt(return_)) => {
+                let (value, ty) = if let Some(expr) = return_.expr() {
+                    self.infer(expr)
+                } else {
+                    (self.error_mvar(), self.error_mvar())
+                };
+                tracing::debug!(
+                    "KIRE {} and {}",
+                    value.debug(self.db),
+                    ty.debug(self.db)
+                );
+                (value, ty)
             }
             None => {
                 let unit_ty = self.lang_item(&LangItem::Unit, range);
@@ -183,24 +201,24 @@ impl<'db> ElabCtx<'db> {
         }
     }
 
-    fn lower_literal(&mut self, lit: ast::Literal) -> TermId {
+    fn lower_literal(&mut self, lit: ast::Literal) -> Term<'db> {
         match lit {
             ast::Literal::NumberLit(num) => {
                 let Some(value) = num.text().and_then(|s| s.parse::<u64>().ok()) else {
                     return self.error_mvar();
                 };
-                self.arena.alloc_term(Term::Lit(Literal::Number(value)))
+                Term::lit(self.db, Literal::Number(value))
             }
             ast::Literal::StringLit(s) => {
                 let Some(value) = s.unquoted().map(std::string::ToString::to_string) else {
                     return self.error_mvar();
                 };
-                self.arena.alloc_term(Term::Lit(Literal::Str(value)))
+                Term::lit(self.db, Literal::Str(value))
             }
         }
     }
 
-    fn literal_type(&mut self, lit: ast::Literal) -> TermId {
+    fn literal_type(&mut self, lit: ast::Literal) -> Term<'db> {
         match lit {
             ast::Literal::NumberLit(num) => {
                 self.lang_item(&LangItem::Int32, num.syntax().text_range())
@@ -209,7 +227,8 @@ impl<'db> ElabCtx<'db> {
         }
     }
 
-    fn resolve_name(&mut self, name: &ast::Name) -> (TermId, TermId) {
+    #[instrument(skip(self))]
+    fn resolve_name(&mut self, name: &ast::Name) -> (Term<'db>, Term<'db>) {
         let (path_strs, path): (Vec<String>, Vec<Symbol>) = name
             .path()
             .map(|seg| {
@@ -227,18 +246,21 @@ impl<'db> ElabCtx<'db> {
         };
         if member_txt == "Type" && path.is_empty() {
             let u = self.gen_.fresh();
-            let level = self.arena.alloc_level(Level::MVar(u));
-            let succ = self.arena.alloc_level(Level::Succ(level));
-            return (
-                self.arena.alloc_term(Term::Sort(succ)),
-                self.arena.alloc_term(Term::Sort(level)),
-            );
+            let level = Level::mvar(self.db, u);
+            let succ = Level::succ(self.db, level);
+            return (Term::sort(self.db, succ), Term::sort(self.db, level));
         }
 
         let member = Symbol::from_str(self.db, member_txt);
+        if let Some(local) = self.lctx.find_by_name(member) {
+            let ty = local.ty;
+            let reference = Term::fvar(self.db, local.unique);
+            return (reference, ty);
+        }
+
         if let Some(item) = self.namespace.resolve(self.db, &path, member) {
             let item_ty = self.db.signature(item).ty;
-            let item_term = self.arena.alloc_term(Term::Const(item));
+            let item_term = Term::constant(self.db, item);
             (item_term, item_ty)
         } else {
             let path_txt = path_strs.into_iter().map(|w| w + "::").collect::<String>();
@@ -258,69 +280,7 @@ impl<'db> ElabCtx<'db> {
         Diagnostic::error(message, file, range)
     }
 
-    pub fn import_term(&mut self, from: &TermArena<'db>, t: TermId) -> TermId {
-        match from.get_term(t).clone() {
-            Term::BVar(i) => self.arena.alloc_term(Term::BVar(i)),
-            Term::FVar(u) => self.arena.alloc_term(Term::FVar(u)),
-            Term::MVar(u) => self.arena.alloc_term(Term::MVar(u)),
-            Term::Const(id) => self.arena.alloc_term(Term::Const(id)),
-            Term::Lit(l) => self.arena.alloc_term(Term::Lit(l)),
-            Term::Sort(l) => {
-                let l = self.import_level(from, l);
-                self.arena.alloc_term(Term::Sort(l))
-            }
-            Term::App(f, x) => {
-                let f = self.import_term(from, f);
-                let x = self.import_term(from, x);
-                self.arena.mk_app(f, x)
-            }
-            Term::Lam(i, t, b) => {
-                let t = self.import_term(from, t);
-                let b = self.import_term(from, b);
-                self.arena.mk_lam(i, t, b)
-            }
-            Term::Pi(i, t, b) => {
-                let t = self.import_term(from, t);
-                let b = self.import_term(from, b);
-                self.arena.mk_pi(i, t, b)
-            }
-            Term::Sigma(i, t, b) => {
-                let t = self.import_term(from, t);
-                let b = self.import_term(from, b);
-                self.arena.mk_sigma(i, t, b)
-            }
-            Term::Let(t, v, b) => {
-                let t = self.import_term(from, t);
-                let v = self.import_term(from, v);
-                let b = self.import_term(from, b);
-                self.arena.mk_let(t, v, b)
-            }
-        }
-    }
-
-    fn import_level(&mut self, from: &TermArena<'db>, l: LevelId) -> LevelId {
-        match from.get_level(l) {
-            Level::Zero => self.arena.alloc_level(Level::Zero),
-            Level::Succ(l) => {
-                let l = self.import_level(from, *l);
-                self.arena.alloc_level(Level::Succ(l))
-            }
-            Level::Max(lhs, rhs) => {
-                let lhs = self.import_level(from, *lhs);
-                let rhs = self.import_level(from, *rhs);
-                self.arena.alloc_level(Level::Max(lhs, rhs))
-            }
-            Level::IMax(lhs, rhs) => {
-                let lhs = self.import_level(from, *lhs);
-                let rhs = self.import_level(from, *rhs);
-                self.arena.alloc_level(Level::IMax(lhs, rhs))
-            }
-            Level::MVar(u) => self.arena.alloc_level(Level::MVar(*u)),
-            Level::Param(s) => self.arena.alloc_level(Level::Param(*s)),
-        }
-    }
-
-    pub fn lang_item(&mut self, lang_item: &LangItem, range: TextRange) -> TermId {
+    pub fn lang_item(&mut self, lang_item: &LangItem, range: TextRange) -> Term<'db> {
         let file = self.current_decl.file(self.db);
         let Some(item_id) = self.db.lang_items(file).get(lang_item).copied() else {
             let diag = self
@@ -329,6 +289,6 @@ impl<'db> ElabCtx<'db> {
             self.diagnostic(diag);
             return self.error_mvar();
         };
-        self.arena.alloc_term(Term::Const(item_id))
+        Term::constant(self.db, item_id)
     }
 }

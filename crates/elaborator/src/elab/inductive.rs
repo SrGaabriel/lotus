@@ -3,10 +3,7 @@ use ast::parse_file;
 use crate::{
     ElabDatabase,
     ElabDb,
-    core::{
-        TermArena,
-        TermId,
-    },
+    core::Term,
     elab::ctx::ElabCtx,
     ids::{
         ItemId,
@@ -16,9 +13,8 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::Update)]
 pub struct InductiveData<'db> {
-    pub arena: TermArena<'db>,
     pub num_params: usize,
-    pub binders: Vec<TermId>,
+    pub binders: Vec<Term<'db>>,
     pub ctors: Vec<ItemId<'db>>,
 }
 
@@ -39,7 +35,7 @@ pub fn inductive_data<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Indu
 
     let parse = parse_file(db, file);
     let source = parse.tree();
-    let mut binders: Vec<TermId> = Vec::new();
+    let mut binders: Vec<Term<'db>> = Vec::new();
     let mut num_params: usize = 0;
 
     if let Some(ast::Decl::InductiveDecl(decl)) = source.decl().nth(item.ast_index(db) as usize) {
@@ -54,7 +50,6 @@ pub fn inductive_data<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Indu
     }
 
     InductiveData {
-        arena: cx.arena,
         num_params,
         binders,
         ctors,

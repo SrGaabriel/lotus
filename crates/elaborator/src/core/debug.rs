@@ -10,11 +10,10 @@ use crate::{
     core::{
         BinderInfo,
         Level,
-        LevelId,
+        LevelKind,
         Literal,
         Term,
-        TermArena,
-        TermId,
+        TermKind,
     },
 };
 
@@ -39,73 +38,71 @@ fn write_item(out: &mut dyn Write, db: Db<'_>, item: &ElaboratedItem<'_>) -> fmt
     write!(out, "{kind} {name} [#{}]", item.id.ast_index(db))?;
 
     write!(out, " : ")?;
-    write_term(out, db, &item.signature.arena, item.signature.ty, 0)?;
+    write_term(out, db, item.signature.ty, 0)?;
     writeln!(out)?;
 
     if let Some(body) = item.def_body {
         write!(out, "  := ")?;
-        write_term(out, db, &body.arena, body.value, 0)?;
+        write_term(out, db, body.value, 0)?;
         writeln!(out)?;
     }
     Ok(())
 }
 
-pub fn write_term(
+pub fn write_term<'db>(
     out: &mut dyn Write,
-    db: Db<'_>,
-    arena: &TermArena<'_>,
-    id: TermId,
+    db: Db<'db>,
+    term: Term<'db>,
     prec: u8,
 ) -> fmt::Result {
-    match arena.get_term(id) {
-        Term::BVar(i) => write!(out, "#{i}"),
-        Term::FVar(u) => write!(out, "?f{}", u.0),
-        Term::MVar(u) => write!(out, "?m{}", u.0),
-        Term::Const(d) => write!(out, "{}", d.name(db).text(db)),
-        Term::Sort(l) => {
+    match term.kind(db) {
+        TermKind::BVar(i) => write!(out, "#{i}"),
+        TermKind::FVar(u) => write!(out, "?f{}", u.0),
+        TermKind::MVar(u) => write!(out, "?m{}", u.0),
+        TermKind::Const(d) => write!(out, "{}", d.name(db).text(db)),
+        TermKind::Sort(l) => {
             write!(out, "Sort ")?;
-            write_level(out, db, arena, *l, 11)
+            write_level(out, db, *l, 11)
         }
-        Term::Lit(lit) => write_lit(out, lit),
-        Term::App(f, x) => paren(out, prec, 10, |o| {
-            write_term(o, db, arena, *f, 10)?;
+        TermKind::Lit(lit) => write_lit(out, lit),
+        TermKind::App(f, x) => paren(out, prec, 10, |o| {
+            write_term(o, db, *f, 10)?;
             o.write_char(' ')?;
-            write_term(o, db, arena, *x, 11)
+            write_term(o, db, *x, 11)
         }),
-        Term::Lam(info, ty, body) => paren(out, prec, 0, |o| {
+        TermKind::Lam(info, ty, body) => paren(out, prec, 0, |o| {
             o.write_str("λ ")?;
-            write_binder(o, db, arena, *info, *ty)?;
+            write_binder(o, db, *info, *ty)?;
             o.write_str(" => ")?;
-            write_term(o, db, arena, *body, 0)
+            write_term(o, db, *body, 0)
         }),
-        Term::Pi(info, ty, body) => paren(out, prec, 0, |o| {
-            write_binder(o, db, arena, *info, *ty)?;
+        TermKind::Pi(info, ty, body) => paren(out, prec, 0, |o| {
+            write_binder(o, db, *info, *ty)?;
             o.write_str(" -> ")?;
-            write_term(o, db, arena, *body, 0)
+            write_term(o, db, *body, 0)
         }),
-        Term::Sigma(info, ty, body) => paren(out, prec, 0, |o| {
+        TermKind::Sigma(info, ty, body) => paren(out, prec, 0, |o| {
             o.write_str("Σ ")?;
-            write_binder(o, db, arena, *info, *ty)?;
+            write_binder(o, db, *info, *ty)?;
             o.write_str(", ")?;
-            write_term(o, db, arena, *body, 0)
+            write_term(o, db, *body, 0)
         }),
-        Term::Let(ty, val, body) => paren(out, prec, 0, |o| {
+        TermKind::Let(ty, val, body) => paren(out, prec, 0, |o| {
             o.write_str("let : ")?;
-            write_term(o, db, arena, *ty, 0)?;
+            write_term(o, db, *ty, 0)?;
             o.write_str(" := ")?;
-            write_term(o, db, arena, *val, 0)?;
+            write_term(o, db, *val, 0)?;
             o.write_str("; ")?;
-            write_term(o, db, arena, *body, 0)
+            write_term(o, db, *body, 0)
         }),
     }
 }
 
-fn write_binder(
+fn write_binder<'db>(
     out: &mut dyn Write,
-    db: Db<'_>,
-    arena: &TermArena<'_>,
+    db: Db<'db>,
     info: BinderInfo,
-    ty: TermId,
+    ty: Term<'db>,
 ) -> fmt::Result {
     let (open, close) = match info {
         BinderInfo::Explicit => ("(", ")"),
@@ -115,55 +112,54 @@ fn write_binder(
     };
     out.write_str(open)?;
     out.write_str("_ : ")?;
-    write_term(out, db, arena, ty, 0)?;
+    write_term(out, db, ty, 0)?;
     out.write_str(close)
 }
 
-fn write_level(
+fn write_level<'db>(
     out: &mut dyn Write,
-    db: Db<'_>,
-    arena: &TermArena<'_>,
-    id: LevelId,
+    db: Db<'db>,
+    level: Level<'db>,
     prec: u8,
 ) -> fmt::Result {
     let mut succs = 0u32;
-    let mut cur = id;
-    while let Level::Succ(inner) = arena.get_level(cur) {
+    let mut cur = level;
+    while let LevelKind::Succ(inner) = cur.kind(db) {
         succs += 1;
         cur = *inner;
     }
-    match arena.get_level(cur) {
-        Level::Zero if succs > 0 => write!(out, "{succs}"),
-        Level::Zero => out.write_char('0'),
-        Level::Succ(_) => unreachable!(),
-        Level::Max(a, b) => paren(out, prec, 5, |o| {
+    match cur.kind(db) {
+        LevelKind::Zero if succs > 0 => write!(out, "{succs}"),
+        LevelKind::Zero => out.write_char('0'),
+        LevelKind::Succ(_) => unreachable!(),
+        LevelKind::Max(a, b) => paren(out, prec, 5, |o| {
             o.write_str("max ")?;
-            write_level(o, db, arena, *a, 6)?;
+            write_level(o, db, *a, 6)?;
             o.write_char(' ')?;
-            write_level(o, db, arena, *b, 6)?;
+            write_level(o, db, *b, 6)?;
             if succs > 0 {
                 write!(o, " + {succs}")?;
             }
             Ok(())
         }),
-        Level::IMax(a, b) => paren(out, prec, 5, |o| {
+        LevelKind::IMax(a, b) => paren(out, prec, 5, |o| {
             o.write_str("imax ")?;
-            write_level(o, db, arena, *a, 6)?;
+            write_level(o, db, *a, 6)?;
             o.write_char(' ')?;
-            write_level(o, db, arena, *b, 6)?;
+            write_level(o, db, *b, 6)?;
             if succs > 0 {
                 write!(o, " + {succs}")?;
             }
             Ok(())
         }),
-        Level::MVar(u) => {
+        LevelKind::MVar(u) => {
             write!(out, "?u{}", u.0)?;
             if succs > 0 {
                 write!(out, "+{succs}")?;
             }
             Ok(())
         }
-        Level::Param(s) => {
+        LevelKind::Param(s) => {
             write!(out, "{}", s.text(db))?;
             if succs > 0 {
                 write!(out, "+{succs}")?;

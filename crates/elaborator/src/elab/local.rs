@@ -1,7 +1,7 @@
 use crate::{
     core::{
         BinderInfo,
-        TermId,
+        Term,
     },
     ids::{
         Symbol,
@@ -13,12 +13,12 @@ use crate::{
 pub struct LocalBinder<'db> {
     pub unique: Unique,
     pub name: Option<Symbol<'db>>,
-    pub ty: TermId,
+    pub ty: Term<'db>,
     pub info: BinderInfo,
-    pub value: Option<TermId>,
+    pub value: Option<Term<'db>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct LocalCtx<'db> {
     binders: Vec<LocalBinder<'db>>,
 }

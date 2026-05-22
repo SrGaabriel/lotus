@@ -19,8 +19,7 @@ pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> DefBody<'d
     let value = match source.decl().nth(item.ast_index(db) as usize) {
         Some(ast::Decl::DefDecl(decl)) => match decl.body() {
             Some(expr) => {
-                let sig = db.signature(item);
-                let expected = cx.import_term(&sig.arena, sig.ty);
+                let expected = db.signature(item).ty;
                 cx.check(expr, expected)
             }
             None => cx.placeholder(),
@@ -28,8 +27,5 @@ pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> DefBody<'d
         _ => cx.placeholder(),
     };
 
-    DefBody {
-        arena: cx.arena,
-        value,
-    }
+    DefBody { value }
 }

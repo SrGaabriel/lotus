@@ -18,7 +18,7 @@ use crate::{
 
 pub type LanguageItems<'db> = FxHashMap<LangItem, ItemId<'db>>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString, Display, salsa::Update)]
 pub enum LangItem {
     #[strum(serialize = "type.boolean")]
     Boolean,
@@ -36,19 +36,6 @@ pub enum LangItem {
     Unit,
     #[strum(serialize = "constructor.unit")]
     UnitConstructor,
-}
-
-unsafe impl salsa::Update for LangItem {
-    unsafe fn maybe_update(old_pointer: *mut Self, new_value: Self) -> bool {
-        unsafe {
-            if *old_pointer == new_value {
-                false
-            } else {
-                *old_pointer = new_value;
-                true
-            }
-        }
-    }
 }
 
 #[salsa::tracked(returns(ref))]
@@ -71,13 +58,17 @@ pub fn file_lang_items(db: &dyn ElabDatabase, file: db::SourceFile) -> LanguageI
                 }
             }
             ItemKind::Constructor => {
-                let Some(parent) = id.parent(db) else { continue };
+                let Some(parent) = id.parent(db) else {
+                    continue;
+                };
                 let Some(ast::Decl::InductiveDecl(ind)) =
                     source.decl().nth(parent.ast_index(db) as usize)
                 else {
                     continue;
                 };
-                let Some(ctors) = ind.inductive_constructors() else { continue };
+                let Some(ctors) = ind.inductive_constructors() else {
+                    continue;
+                };
                 let Some(ctor) = ctors.constructor_decl().nth(id.ast_index(db) as usize) else {
                     continue;
                 };

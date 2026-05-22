@@ -11,16 +11,14 @@ inductive Unit : Type :=
 @[lang "type.int32"]
 inductive Int32 : Type := MkInt32 (val : Int) : Int32;
 
-def hello : Boolean := {}
-
-def hello_world (hello : Boolean) (world : Boolean) : Boolean := {}
+def hello_world (hello : Boolean) (world : Boolean) : Unit := {}
 
 def foo : Boolean := Boolean::True
 
-def world : Boolean := 5
-
-def stmts : Boolean := {
+def stmts : Int32 := {
     let x := 5;
     let y := 10;
     x := 10;
+    let z := Boolean::True;
+    return z;
 }

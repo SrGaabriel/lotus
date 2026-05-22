@@ -49,8 +49,13 @@ pub enum SyntaxKind {
 
     Unknown,
 
+    #[static_text("def")]
     DefKw,
+    #[static_text("let")]
     LetKw,
+    #[static_text("return")]
+    ReturnKw,
+    #[static_text("inductive")]
     InductiveKw,
 
     // === Nodes ===
@@ -71,6 +76,7 @@ pub enum SyntaxKind {
     BraceBlock,
     LetStmt,
     MutationStmt,
+    ReturnStmt,
     Attribute,
 }
 
@@ -97,6 +103,7 @@ impl SyntaxKind {
             TokenKind::Unknown => Self::Unknown,
             TokenKind::DefKw => Self::DefKw,
             TokenKind::LetKw => Self::LetKw,
+            TokenKind::ReturnKw => Self::ReturnKw,
             TokenKind::InductiveKw => Self::InductiveKw,
             TokenKind::Colon => Self::Colon,
             TokenKind::ColonColon => Self::ColonColon,

@@ -183,6 +183,7 @@ fn token_accessor(text: &str) -> Result<String> {
         "string_lit" => "string_lit",
         "def" => "def_kw",
         "let" => "let_kw",
+        "return" => "return_kw",
         "inductive" => "inductive_kw",
         other => anyhow::bail!("no token accessor mapping for token `{other}`"),
     };
@@ -210,6 +211,7 @@ fn token_kind(text: &str) -> Result<String> {
         "string_lit" => "StringLit",
         "def" => "DefKw",
         "let" => "LetKw",
+        "return" => "ReturnKw",
         "inductive" => "InductiveKw",
         other => anyhow::bail!("no SyntaxKind mapping for token `{other}`"),
     }

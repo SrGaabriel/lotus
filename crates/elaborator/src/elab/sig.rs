@@ -2,10 +2,7 @@ use ast::parse_file;
 
 use crate::{
     ElabDatabase,
-    core::{
-        TermArena,
-        TermId,
-    },
+    core::Term,
     elab::ctx::ElabCtx,
     ids::{
         ItemId,
@@ -15,8 +12,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::Update)]
 pub struct Signature<'db> {
-    pub arena: TermArena<'db>,
-    pub ty: TermId,
+    pub ty: Term<'db>,
 }
 
 #[salsa::tracked(returns(ref))]
@@ -63,14 +59,6 @@ pub fn signature<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Signature
             }
         }
     };
-    tracing::info!(
-        "Computed signature for item {:?}: {:?}",
-        item,
-        cx.arena.get_term(ty)
-    );
 
-    Signature {
-        arena: cx.arena,
-        ty,
-    }
+    Signature { ty }
 }

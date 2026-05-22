@@ -355,6 +355,31 @@ impl MutationStmt {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
+pub struct ReturnStmt(ResolvedNode);
+impl AstNode for ReturnStmt {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::ReturnStmt
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl ReturnStmt {
+    pub fn return_kw(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::ReturnKw)
+    }
+    pub fn expr(&self) -> Option<Expr> {
+        child(&self.0)
+    }
+    pub fn semicolon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Semicolon)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct NumberLit(ResolvedNode);
 impl AstNode for NumberLit {
     fn can_cast(k: SyntaxKind) -> bool {
@@ -683,10 +708,11 @@ impl AstNode for Literal {
 pub enum Stmt {
     LetStmt(LetStmt),
     MutationStmt(MutationStmt),
+    ReturnStmt(ReturnStmt),
 }
 impl AstNode for Stmt {
     fn can_cast(k: SyntaxKind) -> bool {
-        LetStmt::can_cast(k) || MutationStmt::can_cast(k)
+        LetStmt::can_cast(k) || MutationStmt::can_cast(k) || ReturnStmt::can_cast(k)
     }
     fn cast(node: ResolvedNode) -> Option<Self> {
         if let Some(it) = LetStmt::cast(node.clone()) {
@@ -695,12 +721,16 @@ impl AstNode for Stmt {
         if let Some(it) = MutationStmt::cast(node.clone()) {
             return Some(Self::MutationStmt(it));
         }
+        if let Some(it) = ReturnStmt::cast(node.clone()) {
+            return Some(Self::ReturnStmt(it));
+        }
         None
     }
     fn syntax(&self) -> &ResolvedNode {
         match self {
             Self::LetStmt(it) => it.syntax(),
             Self::MutationStmt(it) => it.syntax(),
+            Self::ReturnStmt(it) => it.syntax(),
         }
     }
 }

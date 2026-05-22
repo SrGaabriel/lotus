@@ -1,5 +1,5 @@
 use crate::{
-    ElabDatabase,
+    Db,
     ids::{
         ItemId,
         Symbol,
@@ -7,27 +7,17 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Update)]
-#[repr(transparent)]
-pub struct TermId(pub u32);
-
-impl TermId {
-    pub fn debug<'a, 'db>(
-        &self,
-        db: &'db dyn ElabDatabase,
-        arena: &'a TermArena<'db>,
-    ) -> TermDisplay<'a, 'db> {
-        TermDisplay {
-            db,
-            arena,
-            term: *self,
-        }
-    }
+#[salsa::interned(debug)]
+pub struct Term<'db> {
+    #[returns(ref)]
+    pub kind: TermKind<'db>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Update)]
-#[repr(transparent)]
-pub struct LevelId(pub u32);
+#[salsa::interned(debug)]
+pub struct Level<'db> {
+    #[returns(ref)]
+    pub kind: LevelKind<'db>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Update)]
 pub enum BinderInfo {
@@ -44,147 +34,142 @@ pub enum Literal {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, salsa::Update)]
-pub enum Term<'db> {
+pub enum TermKind<'db> {
     BVar(usize),
     FVar(Unique),
     MVar(Unique),
-    App(TermId, TermId),
-    Sort(LevelId),
+    App(Term<'db>, Term<'db>),
+    Sort(Level<'db>),
     Const(ItemId<'db>),
-    Lam(BinderInfo, TermId, TermId),
-    Pi(BinderInfo, TermId, TermId),
-    Sigma(BinderInfo, TermId, TermId),
-    Let(TermId, TermId, TermId),
+    Lam(BinderInfo, Term<'db>, Term<'db>),
+    Pi(BinderInfo, Term<'db>, Term<'db>),
+    Sigma(BinderInfo, Term<'db>, Term<'db>),
+    Let(Term<'db>, Term<'db>, Term<'db>),
     Lit(Literal),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, salsa::Update)]
-pub enum Level<'db> {
+pub enum LevelKind<'db> {
     Zero,
-    Succ(LevelId),
-    Max(LevelId, LevelId),
-    IMax(LevelId, LevelId),
+    Succ(Level<'db>),
+    Max(Level<'db>, Level<'db>),
+    IMax(Level<'db>, Level<'db>),
     MVar(Unique),
     Param(Symbol<'db>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, salsa::Update)]
-pub struct TermArena<'db> {
-    pub terms: Vec<Term<'db>>,
-    pub levels: Vec<Level<'db>>,
-}
-
-impl<'db> TermArena<'db> {
-    pub fn new() -> Self {
-        Self::default()
+impl<'db> Term<'db> {
+    pub fn bvar(db: Db<'db>, i: usize) -> Self {
+        Term::new(db, TermKind::BVar(i))
     }
 
-    pub fn alloc_term(&mut self, term: Term<'db>) -> TermId {
-        let id = TermId(self.terms.len() as u32);
-        self.terms.push(term);
-        id
+    pub fn fvar(db: Db<'db>, u: Unique) -> Self {
+        Term::new(db, TermKind::FVar(u))
     }
 
-    pub fn alloc_level(&mut self, level: Level<'db>) -> LevelId {
-        let id = LevelId(self.levels.len() as u32);
-        self.levels.push(level);
-        id
+    pub fn mvar(db: Db<'db>, u: Unique) -> Self {
+        Term::new(db, TermKind::MVar(u))
     }
 
-    pub fn get_term(&self, id: TermId) -> &Term<'db> {
-        &self.terms[id.0 as usize]
+    pub fn app(db: Db<'db>, f: Term<'db>, x: Term<'db>) -> Self {
+        Term::new(db, TermKind::App(f, x))
     }
 
-    pub fn get_level(&self, id: LevelId) -> &Level<'db> {
-        &self.levels[id.0 as usize]
+    pub fn sort(db: Db<'db>, level: Level<'db>) -> Self {
+        Term::new(db, TermKind::Sort(level))
     }
 
-    pub fn mk_app(&mut self, l: TermId, r: TermId) -> TermId {
-        self.alloc_term(Term::App(l, r))
+    pub fn constant(db: Db<'db>, item: ItemId<'db>) -> Self {
+        Term::new(db, TermKind::Const(item))
     }
 
-    pub fn mk_pi(&mut self, info: BinderInfo, param: TermId, body: TermId) -> TermId {
-        self.alloc_term(Term::Pi(info, param, body))
+    pub fn lam(db: Db<'db>, info: BinderInfo, ty: Term<'db>, body: Term<'db>) -> Self {
+        Term::new(db, TermKind::Lam(info, ty, body))
     }
 
-    pub fn mk_lam(&mut self, info: BinderInfo, param: TermId, body: TermId) -> TermId {
-        self.alloc_term(Term::Lam(info, param, body))
+    pub fn pi(db: Db<'db>, info: BinderInfo, ty: Term<'db>, body: Term<'db>) -> Self {
+        Term::new(db, TermKind::Pi(info, ty, body))
     }
 
-    pub fn mk_sigma(&mut self, info: BinderInfo, param: TermId, body: TermId) -> TermId {
-        self.alloc_term(Term::Sigma(info, param, body))
+    pub fn sigma(db: Db<'db>, info: BinderInfo, ty: Term<'db>, body: Term<'db>) -> Self {
+        Term::new(db, TermKind::Sigma(info, ty, body))
     }
 
-    pub fn mk_let(&mut self, ty: TermId, val: TermId, body: TermId) -> TermId {
-        self.alloc_term(Term::Let(ty, val, body))
+    pub fn let_(db: Db<'db>, ty: Term<'db>, value: Term<'db>, body: Term<'db>) -> Self {
+        Term::new(db, TermKind::Let(ty, value, body))
     }
 
-    pub fn mk_sort(&mut self, level: LevelId) -> TermId {
-        self.alloc_term(Term::Sort(level))
+    pub fn lit(db: Db<'db>, lit: Literal) -> Self {
+        Term::new(db, TermKind::Lit(lit))
     }
 
-    pub fn mk_const(&mut self, item: ItemId<'db>) -> TermId {
-        self.alloc_term(Term::Const(item))
+    pub fn type0(db: Db<'db>) -> Self {
+        let zero = Level::new(db, LevelKind::Zero);
+        let one = Level::new(db, LevelKind::Succ(zero));
+        Term::sort(db, one)
     }
 
-    pub fn mk_lit(&mut self, lit: Literal) -> TermId {
-        self.alloc_term(Term::Lit(lit))
-    }
-
-    pub fn type0(&mut self) -> TermId {
-        let zero = self.alloc_level(Level::Zero);
-        let succ = self.alloc_level(Level::Succ(zero));
-        self.alloc_term(Term::Sort(succ))
+    pub fn debug(self, db: Db<'db>) -> TermDisplay<'db> {
+        TermDisplay { db, term: self }
     }
 }
 
-pub fn uncurry(arena: &TermArena, term: TermId) -> (TermId, Vec<(BinderInfo, TermId)>) {
+impl<'db> Level<'db> {
+    pub fn zero(db: Db<'db>) -> Self {
+        Level::new(db, LevelKind::Zero)
+    }
+
+    pub fn succ(db: Db<'db>, inner: Level<'db>) -> Self {
+        Level::new(db, LevelKind::Succ(inner))
+    }
+
+    pub fn mvar(db: Db<'db>, u: Unique) -> Self {
+        Level::new(db, LevelKind::MVar(u))
+    }
+}
+
+pub fn uncurry<'db>(db: Db<'db>, term: Term<'db>) -> (Term<'db>, Vec<(BinderInfo, Term<'db>)>) {
     let mut args = Vec::new();
     let mut current = term;
-    while let Term::Pi(info, param, body) = arena.get_term(current) {
+    while let TermKind::Pi(info, param, body) = current.kind(db) {
         args.push((*info, *param));
         current = *body;
     }
     (current, args)
 }
 
-pub struct TermDisplay<'a, 'db> {
-    pub db: &'db dyn ElabDatabase,
-    pub arena: &'a TermArena<'db>,
-    pub term: TermId,
+pub struct TermDisplay<'db> {
+    pub db: Db<'db>,
+    pub term: Term<'db>,
 }
 
-impl std::fmt::Display for TermDisplay<'_, '_> {
+impl std::fmt::Display for TermDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let child = |id| TermDisplay {
-            db: self.db,
-            arena: self.arena,
-            term: id,
-        };
-        match self.arena.get_term(self.term) {
-            Term::BVar(i) => write!(f, "#{i}"),
-            Term::Const(d) => write!(f, "{}", d.name(self.db).text(self.db)),
-            Term::App(g, x) => write!(f, "({} {})", child(*g), child(*x)),
-            Term::Lam(info, ty, body) => {
+        let child = |term| TermDisplay { db: self.db, term };
+        match self.term.kind(self.db) {
+            TermKind::BVar(i) => write!(f, "#{i}"),
+            TermKind::Const(d) => write!(f, "{}", d.name(self.db).text(self.db)),
+            TermKind::App(g, x) => write!(f, "({} {})", child(*g), child(*x)),
+            TermKind::Lam(info, ty, body) => {
                 write!(f, "(λ {:?} : {} => {})", info, child(*ty), child(*body))
             }
-            Term::Pi(info, ty, body) => {
+            TermKind::Pi(info, ty, body) => {
                 write!(f, "({:?} {} -> {})", info, child(*ty), child(*body))
             }
-            Term::Sigma(info, ty, body) => {
+            TermKind::Sigma(info, ty, body) => {
                 write!(f, "(Σ {:?} {} , {})", info, child(*ty), child(*body))
             }
-            Term::Let(ty, val, body) => write!(
+            TermKind::Let(ty, val, body) => write!(
                 f,
                 "(let : {} := {} ; {})",
                 child(*ty),
                 child(*val),
                 child(*body)
             ),
-            Term::Sort(_) => write!(f, "Sort ?"),
-            Term::Lit(lit) => write!(f, "{lit:?}"),
-            Term::FVar(u) => write!(f, "?f{}", u.0),
-            Term::MVar(u) => write!(f, "?m{}", u.0),
+            TermKind::Sort(_) => write!(f, "Sort ?"),
+            TermKind::Lit(lit) => write!(f, "{lit:?}"),
+            TermKind::FVar(u) => write!(f, "?f{}", u.0),
+            TermKind::MVar(u) => write!(f, "?m{}", u.0),
         }
     }
 }

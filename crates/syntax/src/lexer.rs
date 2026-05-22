@@ -14,6 +14,7 @@ pub enum TokenKind {
 
     DefKw,
     LetKw,
+    ReturnKw,
     InductiveKw,
 
     String,
@@ -54,6 +55,7 @@ impl TokenKind {
             Self::DefKw => "'def'",
             Self::InductiveKw => "'inductive'",
             Self::LetKw => "'let'",
+            Self::ReturnKw => "'return'",
             Self::Number => "number",
             Self::String => "string",
             Self::LParen => "'('",
@@ -285,6 +287,7 @@ impl<'a> Cursor<'a> {
         let kind = match &*ident {
             "def" => TokenKind::DefKw,
             "let" => TokenKind::LetKw,
+            "return" => TokenKind::ReturnKw,
             "inductive" => TokenKind::InductiveKw,
             _ => TokenKind::Identifier,
         };
