@@ -5,7 +5,6 @@ use ast::{
 
 use crate::{
     ElabDatabase,
-    ElabDb,
     elab::{
         ctx::{
             ElabCtx,
@@ -31,21 +30,29 @@ pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> DefBody<'d
     let value = match source.decl().nth(item.ast_index(db) as usize) {
         Some(ast::Decl::DefDecl(decl)) => match decl.body() {
             Some(expr) => {
-                let ty = db.signature(item).ty;
-                let annotation = decl.return_type().map_or_else(
+                let return_type_tok = decl.return_type().and_then(|r| r.r#type());
+
+                let annotation = return_type_tok.as_ref().map_or_else(
                     || expr.syntax().text_range(),
                     |ret| ret.syntax().text_range(),
                 );
-                let expected = Expected::new(ty, ExpectedReason::ReturnType { annotation });
+
                 let name = item.name(db);
-                let free_binders = cx.elaborate_binders(decl.params());
-                let body = cx.with_frame(Frame::DefBody { name }, |cx| cx.check(expr, &expected));
-                cx.abstract_binders(&free_binders, body)
+                cx.with_binders(decl.binders(), |cx| {
+                    let body_type = match return_type_tok {
+                        Some(t) => cx.lower_type(t),
+                        None => cx.error_mvar(),
+                    };
+                    let expected =
+                        Expected::new(body_type, ExpectedReason::ReturnType { annotation });
+                    cx.with_frame(Frame::DefBody { name }, |cx| cx.check(expr, &expected))
+                })
             }
             None => cx.placeholder(),
         },
         _ => cx.placeholder(),
     };
 
+    let value = cx.abstract_autobound_lam(value);
     DefBody { value }
 }

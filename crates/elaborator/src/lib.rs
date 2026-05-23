@@ -2,6 +2,7 @@ pub mod core;
 pub mod elab;
 pub mod env;
 pub mod ids;
+pub mod util;
 
 use std::fmt::Debug;
 

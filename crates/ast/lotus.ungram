@@ -5,16 +5,16 @@ Decl =
   DefDecl | InductiveDecl
 
 DefDecl =
-  Attribute* 'def' ident:Identifier params:Binder* return_type:ReturnType ':=' body:Expr
+  Attribute* 'def' ident:Identifier binders:Binder* return_type:ReturnType ':=' body:Expr
 
 InductiveDecl =
-  Attribute* 'inductive' ident:Identifier params:Binder* return_type:ReturnType ':=' InductiveConstructors ';'
+  Attribute* 'inductive' ident:Identifier binders:Binder* return_type:ReturnType ':=' InductiveConstructors ';'
 
 InductiveConstructors =
   ConstructorDecl ('|' ConstructorDecl)*
 
 ConstructorDecl =
-  Attribute* ident:Identifier params:Binder* return_type:ReturnType
+  Attribute* ident:Identifier binders:Binder* return_type:ReturnType
 
 ReturnType =
   ':' Type

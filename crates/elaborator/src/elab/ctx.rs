@@ -39,6 +39,7 @@ use crate::{
         Unique,
         UniqueGen,
     },
+    util::naming::is_autobindable,
 };
 
 #[derive(Debug, Clone)]
@@ -57,6 +58,8 @@ pub struct ElabCtx<'db> {
 
     pub frames: Vec<Frame<'db>>,
     pub erroneous_mvars: Vec<Unique>,
+
+    pub autobound: Vec<FreeBinder<'db>>,
 }
 
 impl<'db> ElabCtx<'db> {
@@ -71,6 +74,7 @@ impl<'db> ElabCtx<'db> {
             namespace,
             frames: Vec::new(),
             erroneous_mvars: Vec::new(),
+            autobound: Vec::new(),
         }
     }
 
@@ -118,14 +122,19 @@ impl<'db> ElabCtx<'db> {
 
     pub fn lower_type(&mut self, ty: ast::Type) -> Term<'db> {
         match ty {
-            ast::Type::Name(name) => {
-                let (term, _term_ty) = self.resolve_name(&name);
-                term
-            }
+            ast::Type::Name(name) => match self.try_resolve_name(&name) {
+                Some((term, _term_ty)) => term,
+                None => self.autobind_or_error(&name),
+            },
             ast::Type::PiType(_) => {
                 todo!();
             }
         }
+    }
+
+    pub fn fresh_mvar(&mut self) -> Term<'db> {
+        let u = self.gen_.fresh();
+        Term::mvar(self.db, u)
     }
 
     pub fn error_mvar(&mut self) -> Term<'db> {
@@ -199,8 +208,9 @@ impl<'db> ElabCtx<'db> {
                     (self.error_mvar(), self.error_mvar())
                 };
                 let saved_lctx = self.lctx.clone();
-                self.fresh_fvar(name, ty, BinderInfo::Explicit, origin);
+                let fvar = self.fresh_fvar(name, ty, BinderInfo::Explicit, origin);
                 let (body, body_ty) = self.lower_stmt(iter, range, expected);
+                let body = self.abstract_fvar(&body, fvar);
                 self.lctx = saved_lctx;
                 let let_expr = Term::let_(self.db, ty, value, body);
                 (let_expr, body_ty)
@@ -271,52 +281,95 @@ impl<'db> ElabCtx<'db> {
         }
     }
 
-    #[instrument(skip(self))]
     fn resolve_name(&mut self, name: &ast::Name) -> (Term<'db>, Term<'db>) {
-        let (path_strs, path): (Vec<String>, Vec<Symbol>) = name
+        match self.try_resolve_name(name) {
+            Some(resolved) => resolved,
+            None => self.unresolved_name(name),
+        }
+    }
+
+    #[instrument(skip(self))]
+    fn try_resolve_name(&mut self, name: &ast::Name) -> Option<(Term<'db>, Term<'db>)> {
+        let path: Vec<Symbol> = name
             .path()
             .map(|seg| {
-                let text: String = seg
+                let text = seg
                     .identifier()
                     .and_then(|s| s.text().map(str::to_owned))
                     .unwrap_or_else(|| "<unknown>".to_owned());
-                let symbol = Symbol::from_str(self.db, &text);
-                (text, symbol)
+                Symbol::from_str(self.db, &text)
             })
-            .unzip();
+            .collect();
         let member = name.member();
-        let Some(member_txt) = member.as_ref().and_then(|m| m.text()) else {
-            return (self.error_mvar(), self.error_mvar());
-        };
+        let member_txt = member.as_ref().and_then(|m| m.text())?;
         if member_txt == "Type" && path.is_empty() {
             let u = self.gen_.fresh();
             let level = Level::mvar(self.db, u);
             let succ = Level::succ(self.db, level);
-            return (Term::sort(self.db, succ), Term::sort(self.db, level));
+            return Some((Term::sort(self.db, succ), Term::sort(self.db, level)));
         }
 
         let member = Symbol::from_str(self.db, member_txt);
         if let Some(local) = self.lctx.find_by_name(member) {
             let ty = local.ty;
             let reference = Term::fvar(self.db, local.unique);
-            return (reference, ty);
+            return Some((reference, ty));
         }
 
-        if let Some(item) = self.namespace.resolve(self.db, &path, member) {
-            let item_ty = self.db.signature(item).ty;
-            let item_term = Term::constant(self.db, item);
-            (item_term, item_ty)
+        let item = self.namespace.resolve(self.db, &path, member)?;
+        let item_ty = self.db.signature(item).ty;
+        let item_term = Term::constant(self.db, item);
+        Some((item_term, item_ty))
+    }
+
+    fn autobind_or_error(&mut self, name: &ast::Name) -> Term<'db> {
+        let is_qualified = name.path().next().is_some();
+        let member = name.member();
+        if let Some(member_txt) = member.as_ref().and_then(|m| m.text())
+            && !is_qualified
+            && is_autobindable(member_txt)
+        {
+            let symbol = Symbol::from_str(self.db, member_txt);
+            self.fresh_autobound(symbol, name.syntax().text_range())
         } else {
-            let path_txt = path_strs.into_iter().map(|w| w + "::").collect::<String>();
-            let diag = self
-                .mk_error(
-                    name.syntax().text_range(),
-                    &format!("unresolved name '{path_txt}{member_txt}'"),
-                )
-                .build();
-            self.diagnostic(diag);
-            (self.error_mvar(), self.error_mvar())
+            self.unresolved_name(name).0
         }
+    }
+
+    fn fresh_autobound(&mut self, name: Symbol<'db>, origin: TextRange) -> Term<'db> {
+        let u = self.gen_.fresh();
+        let sort = Term::sort(self.db, Level::mvar(self.db, u));
+        let fvar = self.fresh_fvar(Some(name), sort, BinderInfo::Implicit, origin);
+        self.autobound
+            .push(FreeBinder::new(fvar, BinderInfo::Implicit, sort));
+        Term::fvar(self.db, fvar)
+    }
+
+    fn unresolved_name(&mut self, name: &ast::Name) -> (Term<'db>, Term<'db>) {
+        let path_txt: String = name
+            .path()
+            .map(|seg| {
+                let text = seg
+                    .identifier()
+                    .and_then(|s| s.text().map(str::to_owned))
+                    .unwrap_or_else(|| "<unknown>".to_owned());
+                text + "::"
+            })
+            .collect();
+        let member_txt = name
+            .member()
+            .as_ref()
+            .and_then(|m| m.text())
+            .unwrap_or("<unknown>")
+            .to_owned();
+        let diag = self
+            .mk_error(
+                name.syntax().text_range(),
+                &format!("unresolved name '{path_txt}{member_txt}'"),
+            )
+            .build();
+        self.diagnostic(diag);
+        (self.error_mvar(), self.error_mvar())
     }
 
     fn report_mismatch(
@@ -398,15 +451,73 @@ impl<'db> ElabCtx<'db> {
         FreeBinder::new(unique, info, ty)
     }
 
+    pub fn with_binders<I>(
+        &mut self,
+        binders: I,
+        body: impl FnOnce(&mut Self) -> Term<'db>,
+    ) -> Term<'db>
+    where
+        I: Iterator<Item = ast::Binder>,
+    {
+        self.with_binders_impl(binders, body, Term::lam)
+    }
+
+    pub fn with_pi_binders<I>(
+        &mut self,
+        binders: I,
+        body: impl FnOnce(&mut Self) -> Term<'db>,
+    ) -> Term<'db>
+    where
+        I: Iterator<Item = ast::Binder>,
+    {
+        self.with_binders_impl(binders, body, Term::pi)
+    }
+
+    fn with_binders_impl<I>(
+        &mut self,
+        binders: I,
+        body: impl FnOnce(&mut Self) -> Term<'db>,
+        mk: fn(Db<'db>, BinderInfo, Term<'db>, Term<'db>) -> Term<'db>,
+    ) -> Term<'db>
+    where
+        I: Iterator<Item = ast::Binder>,
+    {
+        let free_binders = self.elaborate_binders(binders);
+        let saved_lctx = self.lctx.clone();
+        let free_result = body(self);
+        let result = self.abstract_binders_with(&free_binders, free_result, mk);
+        self.lctx = saved_lctx;
+        result
+    }
+
+    pub fn abstract_autobound_pi(&mut self, body: Term<'db>) -> Term<'db> {
+        let autobound = std::mem::take(&mut self.autobound);
+        self.abstract_binders_with(&autobound, body, Term::pi)
+    }
+
+    pub fn abstract_autobound_lam(&mut self, body: Term<'db>) -> Term<'db> {
+        let autobound = std::mem::take(&mut self.autobound);
+        self.abstract_binders_with(&autobound, body, Term::lam)
+    }
+
     pub fn abstract_binders(
         &mut self,
         binder_fvars: &[FreeBinder<'db>],
         body: Term<'db>,
     ) -> Term<'db> {
+        self.abstract_binders_with(binder_fvars, body, Term::lam)
+    }
+
+    fn abstract_binders_with(
+        &self,
+        binder_fvars: &[FreeBinder<'db>],
+        body: Term<'db>,
+        mk: fn(Db<'db>, BinderInfo, Term<'db>, Term<'db>) -> Term<'db>,
+    ) -> Term<'db> {
         let mut term = body;
         for binder in binder_fvars.iter().rev() {
-            term = self.abstract_fvar(&body, binder.fvar);
-            term = Term::lam(self.db, binder.info, binder.ty, term);
+            term = self.abstract_fvar(&term, binder.fvar);
+            term = mk(self.db, binder.info, binder.ty, term);
         }
         term
     }

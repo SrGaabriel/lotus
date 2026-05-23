@@ -44,7 +44,7 @@ impl DefDecl {
     pub fn ident(&self) -> Option<Identifier> {
         child(&self.0)
     }
-    pub fn params(&self) -> AstChildren<'_, Binder> {
+    pub fn binders(&self) -> AstChildren<'_, Binder> {
         children(&self.0)
     }
     pub fn return_type(&self) -> Option<ReturnType> {
@@ -81,7 +81,7 @@ impl InductiveDecl {
     pub fn ident(&self) -> Option<Identifier> {
         child(&self.0)
     }
-    pub fn params(&self) -> AstChildren<'_, Binder> {
+    pub fn binders(&self) -> AstChildren<'_, Binder> {
         children(&self.0)
     }
     pub fn return_type(&self) -> Option<ReturnType> {
@@ -215,7 +215,7 @@ impl ConstructorDecl {
     pub fn ident(&self) -> Option<Identifier> {
         child(&self.0)
     }
-    pub fn params(&self) -> AstChildren<'_, Binder> {
+    pub fn binders(&self) -> AstChildren<'_, Binder> {
         children(&self.0)
     }
     pub fn return_type(&self) -> Option<ReturnType> {

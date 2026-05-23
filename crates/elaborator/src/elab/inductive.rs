@@ -39,7 +39,7 @@ pub fn inductive_data<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Indu
     let mut num_params: usize = 0;
 
     if let Some(ast::Decl::InductiveDecl(decl)) = source.decl().nth(item.ast_index(db) as usize) {
-        for binder in decl.params() {
+        for binder in decl.binders() {
             let ty = match binder.ty() {
                 Some(t) => cx.lower_type(t),
                 None => cx.error_mvar(),

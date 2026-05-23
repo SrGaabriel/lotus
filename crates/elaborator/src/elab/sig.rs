@@ -26,7 +26,7 @@ pub fn signature<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Signature
     let ty = match item.kind(db) {
         ItemKind::Def => match node {
             Some(ast::Decl::DefDecl(decl)) => match decl.return_type().and_then(|r| r.r#type()) {
-                Some(ret_ty) => cx.lower_type(ret_ty),
+                Some(ret_ty) => cx.with_pi_binders(decl.binders(), |cx| cx.lower_type(ret_ty)),
                 None => cx.error_mvar(),
             },
             _ => cx.error_mvar(),
@@ -60,5 +60,6 @@ pub fn signature<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Signature
         }
     };
 
+    let ty = cx.abstract_autobound_pi(ty);
     Signature { ty }
 }
