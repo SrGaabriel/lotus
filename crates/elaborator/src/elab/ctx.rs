@@ -144,8 +144,8 @@ impl<'db> ElabCtx<'db> {
     pub fn error_mvar(&mut self) -> Term<'db> {
         let u = self.gen_.fresh();
         self.erroneous_mvars.push(u);
-        self.mctx
-            .register_meta(u, self.placeholder_ty(), self.lctx.clone());
+        let ty = self.placeholder_ty();
+        self.mctx.register_meta(u, ty, self.lctx.clone());
         Term::mvar(self.db, u)
     }
 
@@ -179,8 +179,9 @@ impl<'db> ElabCtx<'db> {
         }
     }
 
-    pub fn placeholder_ty(&self) -> Term<'db> {
-        Term::type0(self.db)
+    pub fn placeholder_ty(&mut self) -> Term<'db> {
+        let mvar = self.gen_.fresh();
+        Term::sort(self.db, Level::mvar(self.db, mvar))
     }
 
     fn check_block(&mut self, block: &ast::BraceBlock, expected: &Expected<'db>) -> Term<'db> {
@@ -202,8 +203,9 @@ impl<'db> ElabCtx<'db> {
         let (dom, cod, _info) = match func_ty.kind(self.db) {
             TermKind::Pi(info, param_ty, body_ty) => (*param_ty, *body_ty, *info),
             TermKind::MVar(_) => {
-                let dom = self.fresh_mvar(self.placeholder_ty());
-                let cod = self.fresh_mvar(self.placeholder_ty());
+                let placeholder = self.placeholder_ty();
+                let dom = self.fresh_mvar(placeholder);
+                let cod = self.fresh_mvar(placeholder);
 
                 let forced = Term::pi(self.db, BinderInfo::Explicit, dom, cod);
                 if let Err(err) = self.unify(func_ty, forced) {

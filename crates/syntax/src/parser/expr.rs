@@ -5,6 +5,7 @@ use crate::{
     lexer::TokenKind,
     parser::{
         Parser,
+        marker::CompletedMarker,
         token_set::TokenSet,
     },
 };
@@ -46,6 +47,15 @@ impl Parser<'_> {
             self.error_expected("expression", recovery);
             return;
         }
+        let mut lhs = self.parse_atom_expr(recovery);
+        while self.at_expr_start() {
+            let m = lhs.precede(self);
+            self.parse_atom_expr(recovery);
+            lhs = m.complete(self, SyntaxKind::AppExpr);
+        }
+    }
+
+    fn parse_atom_expr(&mut self, recovery: TokenSet) -> CompletedMarker {
         match self.current() {
             TokenKind::Identifier => self.parse_name_expr(recovery),
             TokenKind::Number => self.parse_number_expr(recovery),
@@ -55,7 +65,7 @@ impl Parser<'_> {
         }
     }
 
-    pub fn parse_paren_expr(&mut self, recovery: TokenSet) {
+    pub fn parse_paren_expr(&mut self, recovery: TokenSet) -> CompletedMarker {
         let m = self.start();
         let inner = recovery.union(EXPR_RECOVERY);
         self.expect_recover(TokenKind::LParen, inner);
@@ -63,10 +73,10 @@ impl Parser<'_> {
             self.parse_expr(inner);
         }
         self.expect_recover(TokenKind::RParen, inner);
-        m.complete(self, SyntaxKind::ParenExpr);
+        m.complete(self, SyntaxKind::ParenExpr)
     }
 
-    pub fn parse_brace_block(&mut self, recovery: TokenSet) {
+    pub fn parse_brace_block(&mut self, recovery: TokenSet) -> CompletedMarker {
         let m = self.start();
         let inner = recovery.union(EXPR_RECOVERY).union(STMT_FIRST);
         self.expect_recover(TokenKind::LBrace, inner);
@@ -85,7 +95,7 @@ impl Parser<'_> {
             }
         }
         self.expect_recover(TokenKind::RBrace, inner);
-        m.complete(self, SyntaxKind::BraceBlock);
+        m.complete(self, SyntaxKind::BraceBlock)
     }
 
     pub fn parse_let_stmt(&mut self, recovery: TokenSet) {
@@ -151,7 +161,7 @@ impl Parser<'_> {
         m.complete(self, kind);
     }
 
-    pub fn parse_name_expr(&mut self, recovery: TokenSet) {
+    pub fn parse_name_expr(&mut self, recovery: TokenSet) -> CompletedMarker {
         let m = self.start();
         loop {
             if let Some(next) = self.peek_nth(1)
@@ -170,13 +180,13 @@ impl Parser<'_> {
                 break;
             }
         }
-        m.complete(self, SyntaxKind::Name);
+        m.complete(self, SyntaxKind::Name)
     }
 
-    pub fn parse_number_expr(&mut self, recovery: TokenSet) {
+    pub fn parse_number_expr(&mut self, recovery: TokenSet) -> CompletedMarker {
         let m = self.start();
         self.expect_recover(TokenKind::Number, recovery);
-        m.complete(self, SyntaxKind::NumberLit);
+        m.complete(self, SyntaxKind::NumberLit)
     }
 
     pub fn parse_binder(&mut self, recovery: TokenSet) {
@@ -220,6 +230,19 @@ impl Parser<'_> {
     }
 
     pub fn parse_type(&mut self, recovery: TokenSet) {
+        if !self.at(TokenKind::Identifier) {
+            self.error_expected("type", recovery);
+            return;
+        }
+        let mut lhs = self.parse_atom_type(recovery);
+        while self.at(TokenKind::Identifier) {
+            let m = lhs.precede(self);
+            self.parse_atom_type(recovery);
+            lhs = m.complete(self, SyntaxKind::AppType);
+        }
+    }
+
+    fn parse_atom_type(&mut self, recovery: TokenSet) -> CompletedMarker {
         let m = self.start();
         loop {
             if let Some(forthcoming) = self.peek_nth(1)
@@ -238,6 +261,6 @@ impl Parser<'_> {
                 break;
             }
         }
-        m.complete(self, SyntaxKind::Name);
+        m.complete(self, SyntaxKind::Name)
     }
 }

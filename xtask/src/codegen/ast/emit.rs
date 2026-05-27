@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 use proc_macro2::{
     Ident,
@@ -45,7 +47,40 @@ pub fn emit(src: &AstSrc) -> Result<String> {
 fn emit_node(n: &AstNodeSrc) -> TokenStream {
     let name = format_ident!("{}", n.name);
     let kind = format_ident!("{}", n.name);
-    let accessors = n.fields.iter().map(emit_field);
+
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for f in &n.fields {
+        if let Field::Node {
+            ty,
+            cardinality: Cardinality::Optional,
+            ..
+        } = f
+        {
+            *counts.entry(ty.as_str()).or_default() += 1;
+        }
+    }
+    let mut seen: HashMap<&str, usize> = HashMap::new();
+    let positions: Vec<Option<usize>> = n
+        .fields
+        .iter()
+        .map(|f| match f {
+            Field::Node {
+                ty,
+                cardinality: Cardinality::Optional,
+                ..
+            } if counts.get(ty.as_str()).copied().unwrap_or(0) > 1 => {
+                let idx = *seen.entry(ty.as_str()).and_modify(|c| *c += 1).or_insert(0);
+                Some(idx)
+            }
+            _ => None,
+        })
+        .collect();
+
+    let accessors = n
+        .fields
+        .iter()
+        .zip(positions)
+        .map(|(f, pos)| emit_field(f, pos));
 
     let text_fn = match n.fields.as_slice() {
         [Field::Token { kind, .. }] => {
@@ -79,7 +114,7 @@ fn emit_node(n: &AstNodeSrc) -> TokenStream {
     }
 }
 
-fn emit_field(f: &Field) -> TokenStream {
+fn emit_field(f: &Field, position: Option<usize>) -> TokenStream {
     match f {
         Field::Node {
             name,
@@ -88,7 +123,13 @@ fn emit_field(f: &Field) -> TokenStream {
         } => {
             let n = ident(name);
             let t = ident(ty);
-            quote! { pub fn #n(&self) -> Option<#t> { child(&self.0) } }
+            if let Some(idx) = position {
+                quote! {
+                    pub fn #n(&self) -> Option<#t> { children::<#t>(&self.0).nth(#idx) }
+                }
+            } else {
+                quote! { pub fn #n(&self) -> Option<#t> { child(&self.0) } }
+            }
         }
         Field::Node {
             name,

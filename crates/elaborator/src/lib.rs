@@ -146,10 +146,3 @@ impl<'db> ElabDb<'db> for Db<'db> {
         ElaboratedFile { namespace, items }
     }
 }
-
-#[macro_export]
-macro_rules! sym {
-    ($db:expr, $text:expr) => {
-        $crate::ids::Symbol::new($db, ::std::string::String::from($text))
-    };
-}

@@ -310,10 +310,10 @@ impl AstNode for AppExpr {
 }
 impl AppExpr {
     pub fn func(&self) -> Option<Expr> {
-        child(&self.0)
+        children::<Expr>(&self.0).nth(0usize)
     }
     pub fn arg(&self) -> Option<Expr> {
-        child(&self.0)
+        children::<Expr>(&self.0).nth(1usize)
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -603,10 +603,10 @@ impl AstNode for AppType {
 }
 impl AppType {
     pub fn func(&self) -> Option<Type> {
-        child(&self.0)
+        children::<Type>(&self.0).nth(0usize)
     }
     pub fn arg(&self) -> Option<Type> {
-        child(&self.0)
+        children::<Type>(&self.0).nth(1usize)
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

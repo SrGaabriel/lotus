@@ -19,6 +19,7 @@ def stmts : Int32 := {
     let x : Int32 := 5;
     let y : Int32 := 10;
     x := 10;
+    let hello := hello_world Boolean::True Boolean::False;
     return x;
 }
 

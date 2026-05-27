@@ -72,3 +72,35 @@ impl SourceDatabase for RootDatabase {
         self.files.read().unwrap().values().copied().collect()
     }
 }
+
+#[salsa::db]
+#[derive(Clone, Default)]
+pub struct MockDatabase {
+    storage: salsa::Storage<Self>,
+    files: Arc<RwLock<FxHashMap<PathBuf, SourceFile>>>,
+}
+
+#[salsa::db]
+impl salsa::Database for MockDatabase {}
+
+#[salsa::db]
+impl SourceDatabase for MockDatabase {
+    fn source_file(&self, path: &Path) -> Option<SourceFile> {
+        self.files.read().unwrap().get(path).copied()
+    }
+
+    fn intern_file(&mut self, path: PathBuf, text: Arc<str>) -> SourceFile {
+        let existing = self.files.read().unwrap().get(&path).copied();
+        if let Some(file) = existing {
+            file.set_text(self).to(text);
+            return file;
+        }
+        let file = SourceFile::new(self, path.clone(), text);
+        self.files.write().unwrap().insert(path, file);
+        file
+    }
+
+    fn all_files(&self) -> Vec<SourceFile> {
+        self.files.read().unwrap().values().copied().collect()
+    }
+}
