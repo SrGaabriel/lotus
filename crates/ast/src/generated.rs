@@ -315,6 +315,9 @@ impl LetStmt {
     pub fn name(&self) -> Option<Identifier> {
         child(&self.0)
     }
+    pub fn type_annotation(&self) -> Option<TypeAnnotation> {
+        child(&self.0)
+    }
     pub fn def_eq(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::DefEq)
     }
@@ -376,6 +379,28 @@ impl ReturnStmt {
     }
     pub fn semicolon(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::Semicolon)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct TypeAnnotation(ResolvedNode);
+impl AstNode for TypeAnnotation {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::TypeAnnotation
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl TypeAnnotation {
+    pub fn colon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Colon)
+    }
+    pub fn r#type(&self) -> Option<Type> {
+        child(&self.0)
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

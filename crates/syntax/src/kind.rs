@@ -68,6 +68,7 @@ pub enum SyntaxKind {
     BraceBinder,
     BracketBinder,
     ReturnType,
+    TypeAnnotation,
     Name,
     PathSegment,
     PiType,

@@ -303,10 +303,9 @@ impl<'db> ElabCtx<'db> {
         let member = name.member();
         let member_txt = member.as_ref().and_then(|m| m.text())?;
         if member_txt == "Type" && path.is_empty() {
-            let u = self.gen_.fresh();
-            let level = Level::mvar(self.db, u);
-            let succ = Level::succ(self.db, level);
-            return Some((Term::sort(self.db, succ), Term::sort(self.db, level)));
+            let type0 = Term::type0(self.db);
+            let type1 = Term::sort(self.db, Level::two(self.db));
+            return Some((type0, type1));
         }
 
         let member = Symbol::from_str(self.db, member_txt);

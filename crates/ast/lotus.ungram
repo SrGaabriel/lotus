@@ -32,7 +32,10 @@ Stmt =
   LetStmt | MutationStmt | ReturnStmt
 
 LetStmt =
-  'let' name:Identifier ':=' expr:Expr ';'
+  'let' name:Identifier TypeAnnotation? ':=' expr:Expr ';'
+
+TypeAnnotation = 
+  ':' Type
 
 MutationStmt =
   name:Identifier ':=' expr:Expr ';'

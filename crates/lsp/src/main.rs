@@ -5,10 +5,7 @@ use tower_lsp::{
     Server,
     jsonrpc::Result,
     lsp_types::{
-        InitializeParams,
-        InitializeResult,
-        InitializedParams,
-        MessageType,
+        DidOpenTextDocumentParams, InitializeParams, InitializeResult, InitializedParams, MessageType
     },
 };
 
@@ -26,6 +23,13 @@ impl LanguageServer for Backend {
     async fn initialized(&self, _: InitializedParams) {
         self.client
             .log_message(MessageType::INFO, "server initialized!")
+            .await;
+    }
+
+    async fn did_open(&self, params: DidOpenTextDocumentParams) {
+        let uri = params.text_document.uri;
+        self.client
+            .log_message(MessageType::INFO, format!("opened file: {uri}"))
             .await;
     }
 

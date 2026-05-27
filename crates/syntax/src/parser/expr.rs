@@ -91,11 +91,39 @@ impl Parser<'_> {
     pub fn parse_let_stmt(&mut self, recovery: TokenSet) {
         let m = self.start();
         self.bump_remap(SyntaxKind::LetKw);
+        let name = self.start();
+        if self.expect_recover(TokenKind::Identifier, recovery) {
+            name.complete(self, SyntaxKind::Identifier);
+        } else {
+            name.abandon(self);
+            m.complete(self, SyntaxKind::LetStmt);
+            return;
+        }
+        if self.check_at(TokenKind::Colon) {
+            let ann = self.start();
+            self.bump();
+            let colon_label = self.label(self.current_range(), "`:` here");
+            self.with_label(colon_label, |p| {
+                p.parse_type(
+                    recovery.union(TokenSet::new(&[TokenKind::DefEq, TokenKind::Semicolon])),
+                )
+            });
+            ann.complete(self, SyntaxKind::TypeAnnotation);
+        }
+
         self.parse_assignment_tail(m, recovery, SyntaxKind::LetStmt);
     }
 
     pub fn parse_mutation_stmt(&mut self, recovery: TokenSet) {
         let m = self.start();
+        let name = self.start();
+        if self.expect_recover(TokenKind::Identifier, recovery) {
+            name.complete(self, SyntaxKind::Identifier);
+        } else {
+            name.abandon(self);
+            m.complete(self, SyntaxKind::MutationStmt);
+            return;
+        }
         self.parse_assignment_tail(m, recovery, SyntaxKind::MutationStmt);
     }
 
@@ -113,14 +141,6 @@ impl Parser<'_> {
         recovery: TokenSet,
         kind: SyntaxKind,
     ) {
-        let name = self.start();
-        if self.expect_recover(TokenKind::Identifier, recovery) {
-            name.complete(self, SyntaxKind::Identifier);
-        } else {
-            name.abandon(self);
-            m.complete(self, kind);
-            return;
-        }
         if !self.expect_recover(TokenKind::DefEq, recovery) {
             m.complete(self, kind);
             return;

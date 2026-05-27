@@ -16,8 +16,8 @@ def hello_world (hello : Boolean) (world : Boolean) : Unit := {}
 def foo : Boolean := Boolean::True
 
 def stmts : Int32 := {
-    let x := 5;
-    let y := 10;
+    let x : Int32 := 5;
+    let y : Int32 := 10;
     x := 10;
     return x;
 }

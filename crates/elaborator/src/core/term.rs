@@ -104,9 +104,7 @@ impl<'db> Term<'db> {
     }
 
     pub fn type0(db: Db<'db>) -> Self {
-        let zero = Level::new(db, LevelKind::Zero);
-        let one = Level::new(db, LevelKind::Succ(zero));
-        Term::sort(db, one)
+        Term::sort(db, Level::one(db))
     }
 
     pub fn debug(self, db: Db<'db>) -> TermDisplay<'db> {
@@ -117,6 +115,16 @@ impl<'db> Term<'db> {
 impl<'db> Level<'db> {
     pub fn zero(db: Db<'db>) -> Self {
         Level::new(db, LevelKind::Zero)
+    }
+
+    pub fn one(db: Db<'db>) -> Self {
+        let zero = Level::new(db, LevelKind::Zero);
+        Level::new(db, LevelKind::Succ(zero))
+    }
+
+    pub fn two(db: Db<'db>) -> Self {
+        let one = Level::one(db);
+        Level::new(db, LevelKind::Succ(one))
     }
 
     pub fn succ(db: Db<'db>, inner: Level<'db>) -> Self {
