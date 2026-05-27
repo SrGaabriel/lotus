@@ -5,7 +5,11 @@ use tower_lsp::{
     Server,
     jsonrpc::Result,
     lsp_types::{
-        DidOpenTextDocumentParams, InitializeParams, InitializeResult, InitializedParams, MessageType
+        DidOpenTextDocumentParams,
+        InitializeParams,
+        InitializeResult,
+        InitializedParams,
+        MessageType,
     },
 };
 

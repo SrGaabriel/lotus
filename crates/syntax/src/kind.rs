@@ -72,6 +72,8 @@ pub enum SyntaxKind {
     Name,
     PathSegment,
     PiType,
+    AppType,
+    AppExpr,
     Error,
     ParenExpr,
     BraceBlock,

@@ -20,7 +20,7 @@ use crate::{
 };
 
 #[salsa::tracked(returns(ref))]
-pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> DefBody<'db> {
+pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Option<DefBody<'db>> {
     let mut cx = ElabCtx::new(db, item);
 
     let file = item.file(db);
@@ -48,11 +48,11 @@ pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> DefBody<'d
                     cx.with_frame(Frame::DefBody { name }, |cx| cx.check(expr, &expected))
                 })
             }
-            None => cx.placeholder(),
+            None => cx.placeholder_ty(),
         },
-        _ => cx.placeholder(),
+        _ => return None,
     };
 
     let value = cx.abstract_autobound_lam(value);
-    DefBody { value }
+    Some(DefBody { value })
 }

@@ -4,6 +4,7 @@ pub mod expected;
 pub mod inductive;
 pub mod local;
 pub mod meta;
+pub mod reduce;
 pub mod sig;
 pub mod subst;
 pub mod unify;

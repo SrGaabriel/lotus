@@ -17,6 +17,7 @@ use crate::{
         Level,
         Literal,
         Term,
+        TermKind,
     },
     elab::{
         expected::{
@@ -27,6 +28,7 @@ use crate::{
             LocalBinder,
             LocalCtx,
         },
+        meta::MetaCtx,
         unify::UnifyError,
     },
     env::{
@@ -54,6 +56,7 @@ pub struct ElabCtx<'db> {
     pub gen_: UniqueGen,
 
     pub lctx: LocalCtx<'db>,
+    pub mctx: MetaCtx<'db>,
     pub namespace: Namespace<'db>,
 
     pub frames: Vec<Frame<'db>>,
@@ -71,6 +74,7 @@ impl<'db> ElabCtx<'db> {
             current_decl,
             gen_: UniqueGen::new(),
             lctx: LocalCtx::default(),
+            mctx: MetaCtx::new(),
             namespace,
             frames: Vec::new(),
             erroneous_mvars: Vec::new(),
@@ -126,20 +130,22 @@ impl<'db> ElabCtx<'db> {
                 Some((term, _term_ty)) => term,
                 None => self.autobind_or_error(&name),
             },
-            ast::Type::PiType(_) => {
-                todo!();
-            }
+            ast::Type::PiType(_) => todo!(),
+            ast::Type::AppType(_) => todo!(),
         }
     }
 
-    pub fn fresh_mvar(&mut self) -> Term<'db> {
+    pub fn fresh_mvar(&mut self, ty: Term<'db>) -> Term<'db> {
         let u = self.gen_.fresh();
+        self.mctx.register_meta(u, ty, self.lctx.clone());
         Term::mvar(self.db, u)
     }
 
     pub fn error_mvar(&mut self) -> Term<'db> {
         let u = self.gen_.fresh();
         self.erroneous_mvars.push(u);
+        self.mctx
+            .register_meta(u, self.placeholder_ty(), self.lctx.clone());
         Term::mvar(self.db, u)
     }
 
@@ -156,6 +162,7 @@ impl<'db> ElabCtx<'db> {
                 None => (self.error_mvar(), self.error_mvar()),
             },
             ast::Expr::BraceBlock(block) => self.infer_block(&block),
+            ast::Expr::AppExpr(app) => self.infer_app(&app),
         }
     }
 
@@ -172,13 +179,60 @@ impl<'db> ElabCtx<'db> {
         }
     }
 
-    pub fn placeholder(&mut self) -> Term<'db> {
+    pub fn placeholder_ty(&self) -> Term<'db> {
         Term::type0(self.db)
     }
 
     fn check_block(&mut self, block: &ast::BraceBlock, expected: &Expected<'db>) -> Term<'db> {
         let (term, _) = self.lower_stmt(block.stmt(), block.syntax().text_range(), Some(expected));
         term
+    }
+
+    fn infer_app(&mut self, expr: &ast::AppExpr) -> (Term<'db>, Term<'db>) {
+        let range = expr.syntax().text_range();
+        let arg = expr.arg();
+
+        let (func_term, func_ty) = if let Some(func) = expr.func() {
+            self.infer(func)
+        } else {
+            (self.error_mvar(), self.error_mvar())
+        };
+
+        let func_ty = self.whnf(func_ty);
+        let (dom, cod, _info) = match func_ty.kind(self.db) {
+            TermKind::Pi(info, param_ty, body_ty) => (*param_ty, *body_ty, *info),
+            TermKind::MVar(_) => {
+                let dom = self.fresh_mvar(self.placeholder_ty());
+                let cod = self.fresh_mvar(self.placeholder_ty());
+
+                let forced = Term::pi(self.db, BinderInfo::Explicit, dom, cod);
+                if let Err(err) = self.unify(func_ty, forced) {
+                    let expected = Expected {
+                        ty: forced,
+                        reason: ExpectedReason::None,
+                    };
+                    self.report_mismatch(range, func_ty, &expected, &err);
+                    return (self.error_mvar(), self.error_mvar());
+                }
+                (dom, cod, BinderInfo::Explicit)
+            }
+            _ => {
+                todo!("pretty error")
+            }
+        };
+
+        let arg_term = if let Some(arg) = arg {
+            let expected = Expected {
+                ty: dom,
+                reason: ExpectedReason::None,
+            };
+            self.check(arg, &expected)
+        } else {
+            self.error_mvar()
+        };
+        let result_ty = self.instantiate(&cod, arg_term);
+        let result_term = Term::app(self.db, func_term, arg_term);
+        (result_term, result_ty)
     }
 
     fn infer_block(&mut self, block: &ast::BraceBlock) -> (Term<'db>, Term<'db>) {

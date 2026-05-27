@@ -296,6 +296,28 @@ impl Name {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
+pub struct AppExpr(ResolvedNode);
+impl AstNode for AppExpr {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::AppExpr
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl AppExpr {
+    pub fn func(&self) -> Option<Expr> {
+        child(&self.0)
+    }
+    pub fn arg(&self) -> Option<Expr> {
+        child(&self.0)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct LetStmt(ResolvedNode);
 impl AstNode for LetStmt {
     fn can_cast(k: SyntaxKind) -> bool {
@@ -567,6 +589,28 @@ impl PiType {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
+pub struct AppType(ResolvedNode);
+impl AstNode for AppType {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::AppType
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl AppType {
+    pub fn func(&self) -> Option<Type> {
+        child(&self.0)
+    }
+    pub fn arg(&self) -> Option<Type> {
+        child(&self.0)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct PathSegment(ResolvedNode);
 impl AstNode for PathSegment {
     fn can_cast(k: SyntaxKind) -> bool {
@@ -649,11 +693,12 @@ pub enum Expr {
     BraceBlock(BraceBlock),
     Literal(Literal),
     Name(Name),
+    AppExpr(AppExpr),
 }
 impl AstNode for Expr {
     fn can_cast(k: SyntaxKind) -> bool {
         ParenExpr::can_cast(k) || BraceBlock::can_cast(k) || Literal::can_cast(k)
-            || Name::can_cast(k)
+            || Name::can_cast(k) || AppExpr::can_cast(k)
     }
     fn cast(node: ResolvedNode) -> Option<Self> {
         if let Some(it) = ParenExpr::cast(node.clone()) {
@@ -668,6 +713,9 @@ impl AstNode for Expr {
         if let Some(it) = Name::cast(node.clone()) {
             return Some(Self::Name(it));
         }
+        if let Some(it) = AppExpr::cast(node.clone()) {
+            return Some(Self::AppExpr(it));
+        }
         None
     }
     fn syntax(&self) -> &ResolvedNode {
@@ -676,6 +724,7 @@ impl AstNode for Expr {
             Self::BraceBlock(it) => it.syntax(),
             Self::Literal(it) => it.syntax(),
             Self::Name(it) => it.syntax(),
+            Self::AppExpr(it) => it.syntax(),
         }
     }
 }
@@ -683,10 +732,11 @@ impl AstNode for Expr {
 pub enum Type {
     Name(Name),
     PiType(PiType),
+    AppType(AppType),
 }
 impl AstNode for Type {
     fn can_cast(k: SyntaxKind) -> bool {
-        Name::can_cast(k) || PiType::can_cast(k)
+        Name::can_cast(k) || PiType::can_cast(k) || AppType::can_cast(k)
     }
     fn cast(node: ResolvedNode) -> Option<Self> {
         if let Some(it) = Name::cast(node.clone()) {
@@ -695,12 +745,16 @@ impl AstNode for Type {
         if let Some(it) = PiType::cast(node.clone()) {
             return Some(Self::PiType(it));
         }
+        if let Some(it) = AppType::cast(node.clone()) {
+            return Some(Self::AppType(it));
+        }
         None
     }
     fn syntax(&self) -> &ResolvedNode {
         match self {
             Self::Name(it) => it.syntax(),
             Self::PiType(it) => it.syntax(),
+            Self::AppType(it) => it.syntax(),
         }
     }
 }

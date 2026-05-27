@@ -74,7 +74,7 @@ pub trait ElabDb<'db> {
     fn lang_items(self, file: SourceFile) -> &'db LanguageItems<'db>;
     fn def_map(self, file: SourceFile) -> Namespace<'db>;
     fn signature(self, item: ItemId<'db>) -> &'db Signature<'db>;
-    fn def_body(self, item: ItemId<'db>) -> &'db DefBody<'db>;
+    fn def_body(self, item: ItemId<'db>) -> &'db Option<DefBody<'db>>;
     fn inductive_data(self, item: ItemId<'db>) -> &'db InductiveData<'db>;
     fn elaborate_decl(self, item: ItemId<'db>);
     fn elaborate_file(self, file: SourceFile);
@@ -102,7 +102,7 @@ impl<'db> ElabDb<'db> for Db<'db> {
         elab::sig::signature(self, item)
     }
 
-    fn def_body(self, item: ItemId<'db>) -> &'db DefBody<'db> {
+    fn def_body(self, item: ItemId<'db>) -> &'db Option<DefBody<'db>> {
         elab::def::def_body(self, item)
     }
 
@@ -126,9 +126,10 @@ impl<'db> ElabDb<'db> for Db<'db> {
             .values()
             .map(|&id| {
                 let signature = self.signature(id);
-                let def_body = match id.kind(self) {
-                    ItemKind::Def => Some(self.def_body(id)),
-                    _ => None,
+                let def_body = if id.kind(self) == ItemKind::Def {
+                    self.def_body(id).as_ref()
+                } else {
+                    None
                 };
                 let inductive_data = match id.kind(self) {
                     ItemKind::Inductive => Some(self.inductive_data(id)),

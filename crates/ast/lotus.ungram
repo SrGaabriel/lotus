@@ -20,7 +20,10 @@ ReturnType =
   ':' Type
 
 Expr =
-  ParenExpr | BraceBlock | Literal | Name
+  ParenExpr | BraceBlock | Literal | Name | AppExpr
+
+AppExpr =
+  func:Expr arg:Expr
 
 ParenExpr =
   '(' Expr ')'
@@ -59,7 +62,10 @@ BracketBinder =
   '[' name:Identifier ':' type:Type ']'
 
 Type =
-  Name | PiType
+  Name | PiType | AppType
+
+AppType =
+  func:Type arg:Type
 
 PiType =
   params:Binder* '->' return_type:Type

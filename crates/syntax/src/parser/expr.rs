@@ -106,7 +106,7 @@ impl Parser<'_> {
             self.with_label(colon_label, |p| {
                 p.parse_type(
                     recovery.union(TokenSet::new(&[TokenKind::DefEq, TokenKind::Semicolon])),
-                )
+                );
             });
             ann.complete(self, SyntaxKind::TypeAnnotation);
         }
