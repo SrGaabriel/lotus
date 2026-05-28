@@ -230,19 +230,52 @@ impl Parser<'_> {
     }
 
     pub fn parse_type(&mut self, recovery: TokenSet) {
-        if !self.at(TokenKind::Identifier) {
+        if self.at_binder_start() || self.at(TokenKind::RArrow) {
+            self.parse_pi_type(recovery);
+            return;
+        }
+        if !self.at_type_atom_start() {
             self.error_expected("type", recovery);
             return;
         }
         let mut lhs = self.parse_atom_type(recovery);
-        while self.at(TokenKind::Identifier) {
+        while self.at_type_atom_start() && !self.at_binder_start() {
             let m = lhs.precede(self);
             self.parse_atom_type(recovery);
             lhs = m.complete(self, SyntaxKind::AppType);
         }
+        if self.at(TokenKind::RArrow) {
+            let m = lhs.precede(self);
+            self.bump();
+            self.parse_type(recovery);
+            m.complete(self, SyntaxKind::ArrowType);
+        }
+    }
+
+    fn at_type_atom_start(&self) -> bool {
+        matches!(self.current(), TokenKind::Identifier | TokenKind::LParen)
+    }
+
+    fn at_binder_start(&self) -> bool {
+        match self.current() {
+            TokenKind::LBrace | TokenKind::LBracket => true,
+            TokenKind::LParen => {
+                self.peek_nth(1).map(|t| t.kind) == Some(TokenKind::Identifier)
+                    && self.peek_nth(2).map(|t| t.kind) == Some(TokenKind::Colon)
+            }
+            _ => false,
+        }
     }
 
     fn parse_atom_type(&mut self, recovery: TokenSet) -> CompletedMarker {
+        match self.current() {
+            TokenKind::LParen => self.parse_paren_type(recovery),
+            TokenKind::Identifier => self.parse_name_type(recovery),
+            _ => unreachable!(),
+        }
+    }
+
+    fn parse_name_type(&mut self, recovery: TokenSet) -> CompletedMarker {
         let m = self.start();
         loop {
             if let Some(forthcoming) = self.peek_nth(1)
@@ -262,5 +295,23 @@ impl Parser<'_> {
             }
         }
         m.complete(self, SyntaxKind::Name)
+    }
+
+    fn parse_paren_type(&mut self, recovery: TokenSet) -> CompletedMarker {
+        let m = self.start();
+        let inner = recovery.union(TokenSet::new(&[TokenKind::RParen]));
+        self.expect_recover(TokenKind::LParen, inner);
+        self.parse_type(inner);
+        self.expect_recover(TokenKind::RParen, inner);
+        m.complete(self, SyntaxKind::ParenType)
+    }
+
+    fn parse_pi_type(&mut self, recovery: TokenSet) {
+        let m = self.start();
+        let inner = recovery.union(TokenSet::new(&[TokenKind::RArrow]));
+        self.parse_binder(inner);
+        self.expect_recover(TokenKind::RArrow, recovery);
+        self.parse_type(recovery);
+        m.complete(self, SyntaxKind::PiType);
     }
 }

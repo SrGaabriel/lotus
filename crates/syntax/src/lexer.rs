@@ -33,6 +33,7 @@ pub enum TokenKind {
     DefEq,
     Colon,
     ColonColon,
+    RArrow,
     Pipe,
     At,
 
@@ -70,6 +71,7 @@ impl TokenKind {
             Self::DefEq => "':='",
             Self::Colon => "':'",
             Self::ColonColon => "'::'",
+            Self::RArrow => "'->'",
             Self::Pipe => "'|'",
             Self::At => "'@'",
             Self::Unknown => "unknown token",
@@ -221,6 +223,10 @@ impl<'a> Cursor<'a> {
             }
 
             c if is_id_start(c) => return self.ident(c),
+            '-' if self.first() == '>' => {
+                self.bump();
+                TokenKind::RArrow
+            }
             c if is_op_char(c) => return self.op_ident(),
             c if c.is_ascii_digit() => {
                 self.eat_while(|c| c.is_ascii_digit());

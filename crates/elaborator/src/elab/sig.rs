@@ -53,9 +53,13 @@ pub fn signature<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Signature
                     None
                 }
             });
-            match ctor.and_then(|c| c.return_type()).and_then(|r| r.r#type()) {
-                Some(ret_ty) => cx.lower_type(ret_ty),
-                None => cx.error_mvar(),
+            if let Some(ctor) = ctor
+                && let Some(return_type_node) = ctor.return_type()
+                && let Some(ret_ty) = return_type_node.r#type()
+            {
+                cx.with_pi_binders(ctor.binders(), |cx| cx.lower_type(ret_ty))
+            } else {
+                cx.error_mvar()
             }
         }
     };

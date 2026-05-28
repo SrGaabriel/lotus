@@ -1,3 +1,11 @@
+inductive Nat : Type :=
+      Zero : Nat
+    | Succ : Nat -> Nat;
+
+inductive List : Nat -> Type -> Type :=
+      Nil (a : Type) : List Nat::Zero a
+    | Cons (a : Type) : List n a -> List (Nat::Succ n) a;
+
 @[lang "type.bool"]
 inductive Boolean : Type :=
       True : Boolean
@@ -31,3 +39,11 @@ def stmts2 (test : Int32) : Int32 := {
 }
 
 def id (test : h) : h := test
+
+def test_mutation : Unit := {
+    let natural := Nat::Succ (Nat::Succ Nat::Zero);
+    let list : List natural Int32 := List::Cons 1 (List::Cons 2 (List::Nil));
+    let x := 5;
+    let natural := Nat::Succ (Nat::Succ Nat::Zero);
+    x := 10;
+}

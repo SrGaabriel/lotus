@@ -577,13 +577,13 @@ impl AstNode for PiType {
     }
 }
 impl PiType {
-    pub fn params(&self) -> AstChildren<'_, Binder> {
-        children(&self.0)
+    pub fn binder(&self) -> Option<Binder> {
+        child(&self.0)
     }
     pub fn arrow(&self) -> Option<ResolvedToken> {
         token(&self.0, SyntaxKind::RArrow)
     }
-    pub fn return_type(&self) -> Option<Type> {
+    pub fn r#type(&self) -> Option<Type> {
         child(&self.0)
     }
 }
@@ -607,6 +607,56 @@ impl AppType {
     }
     pub fn arg(&self) -> Option<Type> {
         children::<Type>(&self.0).nth(1usize)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct ArrowType(ResolvedNode);
+impl AstNode for ArrowType {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::ArrowType
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl ArrowType {
+    pub fn dom(&self) -> Option<Type> {
+        children::<Type>(&self.0).nth(0usize)
+    }
+    pub fn arrow(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::RArrow)
+    }
+    pub fn cod(&self) -> Option<Type> {
+        children::<Type>(&self.0).nth(1usize)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct ParenType(ResolvedNode);
+impl AstNode for ParenType {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::ParenType
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl ParenType {
+    pub fn l_paren(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::LParen)
+    }
+    pub fn r#type(&self) -> Option<Type> {
+        child(&self.0)
+    }
+    pub fn r_paren(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::RParen)
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -733,10 +783,13 @@ pub enum Type {
     Name(Name),
     PiType(PiType),
     AppType(AppType),
+    ArrowType(ArrowType),
+    ParenType(ParenType),
 }
 impl AstNode for Type {
     fn can_cast(k: SyntaxKind) -> bool {
         Name::can_cast(k) || PiType::can_cast(k) || AppType::can_cast(k)
+            || ArrowType::can_cast(k) || ParenType::can_cast(k)
     }
     fn cast(node: ResolvedNode) -> Option<Self> {
         if let Some(it) = Name::cast(node.clone()) {
@@ -748,6 +801,12 @@ impl AstNode for Type {
         if let Some(it) = AppType::cast(node.clone()) {
             return Some(Self::AppType(it));
         }
+        if let Some(it) = ArrowType::cast(node.clone()) {
+            return Some(Self::ArrowType(it));
+        }
+        if let Some(it) = ParenType::cast(node.clone()) {
+            return Some(Self::ParenType(it));
+        }
         None
     }
     fn syntax(&self) -> &ResolvedNode {
@@ -755,6 +814,8 @@ impl AstNode for Type {
             Self::Name(it) => it.syntax(),
             Self::PiType(it) => it.syntax(),
             Self::AppType(it) => it.syntax(),
+            Self::ArrowType(it) => it.syntax(),
+            Self::ParenType(it) => it.syntax(),
         }
     }
 }

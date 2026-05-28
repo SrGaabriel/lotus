@@ -126,12 +126,37 @@ impl<'db> ElabCtx<'db> {
 
     pub fn lower_type(&mut self, ty: ast::Type) -> Term<'db> {
         match ty {
+            ast::Type::PiType(pi) => self.lower_pi_type(&pi),
             ast::Type::Name(name) => match self.try_resolve_name(&name) {
                 Some((term, _term_ty)) => term,
                 None => self.autobind_or_error(&name),
             },
-            ast::Type::PiType(_) => todo!(),
-            ast::Type::AppType(_) => todo!(),
+            ast::Type::AppType(app) => {
+                let func = match app.func() {
+                    Some(f) => self.lower_type(f),
+                    None => self.error_mvar(),
+                };
+                let arg = match app.arg() {
+                    Some(a) => self.lower_type(a),
+                    None => self.error_mvar(),
+                };
+                Term::app(self.db, func, arg)
+            }
+            ast::Type::ArrowType(arr) => {
+                let dom = match arr.dom() {
+                    Some(t) => self.lower_type(t),
+                    None => self.error_mvar(),
+                };
+                let cod = match arr.cod() {
+                    Some(t) => self.lower_type(t),
+                    None => self.error_mvar(),
+                };
+                Term::pi(self.db, BinderInfo::Explicit, dom, cod)
+            }
+            ast::Type::ParenType(p) => match p.r#type() {
+                Some(inner) => self.lower_type(inner),
+                None => self.error_mvar(),
+            },
         }
     }
 
@@ -334,6 +359,17 @@ impl<'db> ElabCtx<'db> {
                 self.lang_item(&LangItem::Int32, num.syntax().text_range())
             }
             ast::Literal::StringLit(s) => self.lang_item(&LangItem::Str, s.syntax().text_range()),
+        }
+    }
+
+    fn lower_pi_type(&mut self, pi: &ast::PiType) -> Term<'db> {
+        let binder = pi.binder();
+        if let Some(b) = binder
+            && let Some(cod) = pi.r#type()
+        {
+            self.with_pi_binders(std::iter::once(b), |cx| cx.lower_type(cod))
+        } else {
+            self.error_mvar()
         }
     }
 

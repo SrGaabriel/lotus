@@ -62,13 +62,19 @@ BracketBinder =
   '[' name:Identifier ':' type:Type ']'
 
 Type =
-  Name | PiType | AppType
+  Name | PiType | AppType | ArrowType | ParenType
 
 AppType =
   func:Type arg:Type
 
 PiType =
-  params:Binder* '->' return_type:Type
+  Binder '->' Type
+
+ArrowType =
+  dom:Type '->' cod:Type
+
+ParenType =
+  '(' Type ')'
 
 Name =
   path:PathSegment* member:Identifier
