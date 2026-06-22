@@ -64,6 +64,12 @@ pub fn signature<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Signature
         }
     };
 
+    tracing::debug!(
+        "signature for {} is {}",
+        item.name(db).text(db),
+        ty.debug(db)
+    );
+    let ty = cx.zonk(ty);
     let ty = cx.abstract_autobound_pi(ty);
     Signature { ty }
 }

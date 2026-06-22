@@ -1,3 +1,4 @@
+pub mod app;
 pub mod ctx;
 pub mod def;
 pub mod expected;
@@ -8,6 +9,7 @@ pub mod reduce;
 pub mod sig;
 pub mod subst;
 pub mod unify;
+pub mod zonk;
 
 pub use sig::Signature;
 

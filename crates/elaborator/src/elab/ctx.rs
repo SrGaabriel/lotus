@@ -17,7 +17,6 @@ use crate::{
         Level,
         Literal,
         Term,
-        TermKind,
     },
     elab::{
         expected::{
@@ -197,6 +196,10 @@ impl<'db> ElabCtx<'db> {
         } else {
             let range = expr.syntax().text_range();
             let (term, ty) = self.infer(expr);
+            let Some((term, ty)) = self.insert_implicits_for_expected(term, ty, expected.ty, range)
+            else {
+                return self.error_mvar();
+            };
             if let Err(err) = self.unify(ty, expected.ty) {
                 self.report_mismatch(range, ty, expected, &err);
             }
@@ -212,54 +215,6 @@ impl<'db> ElabCtx<'db> {
     fn check_block(&mut self, block: &ast::BraceBlock, expected: &Expected<'db>) -> Term<'db> {
         let (term, _) = self.lower_stmt(block.stmt(), block.syntax().text_range(), Some(expected));
         term
-    }
-
-    fn infer_app(&mut self, expr: &ast::AppExpr) -> (Term<'db>, Term<'db>) {
-        let range = expr.syntax().text_range();
-        let arg = expr.arg();
-
-        let (func_term, func_ty) = if let Some(func) = expr.func() {
-            self.infer(func)
-        } else {
-            (self.error_mvar(), self.error_mvar())
-        };
-
-        let func_ty = self.whnf(func_ty);
-        let (dom, cod, _info) = match func_ty.kind(self.db) {
-            TermKind::Pi(info, param_ty, body_ty) => (*param_ty, *body_ty, *info),
-            TermKind::MVar(_) => {
-                let placeholder = self.placeholder_ty();
-                let dom = self.fresh_mvar(placeholder);
-                let cod = self.fresh_mvar(placeholder);
-
-                let forced = Term::pi(self.db, BinderInfo::Explicit, dom, cod);
-                if let Err(err) = self.unify(func_ty, forced) {
-                    let expected = Expected {
-                        ty: forced,
-                        reason: ExpectedReason::None,
-                    };
-                    self.report_mismatch(range, func_ty, &expected, &err);
-                    return (self.error_mvar(), self.error_mvar());
-                }
-                (dom, cod, BinderInfo::Explicit)
-            }
-            _ => {
-                todo!("pretty error")
-            }
-        };
-
-        let arg_term = if let Some(arg) = arg {
-            let expected = Expected {
-                ty: dom,
-                reason: ExpectedReason::None,
-            };
-            self.check(arg, &expected)
-        } else {
-            self.error_mvar()
-        };
-        let result_ty = self.instantiate(&cod, arg_term);
-        let result_term = Term::app(self.db, func_term, arg_term);
-        (result_term, result_ty)
     }
 
     fn infer_block(&mut self, block: &ast::BraceBlock) -> (Term<'db>, Term<'db>) {
@@ -463,7 +418,7 @@ impl<'db> ElabCtx<'db> {
         (self.error_mvar(), self.error_mvar())
     }
 
-    fn report_mismatch(
+    pub fn report_mismatch(
         &mut self,
         range: TextRange,
         found: Term<'db>,

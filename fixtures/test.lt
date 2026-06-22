@@ -3,8 +3,8 @@ inductive Nat : Type :=
     | Succ : Nat -> Nat;
 
 inductive List : Nat -> Type -> Type :=
-      Nil (a : Type) : List Nat::Zero a
-    | Cons (a : Type) : List n a -> List (Nat::Succ n) a;
+      Nil {a : Type} : List Nat::Zero a
+    | Cons {a : Type} : a -> List n a -> List (Nat::Succ n) a;
 
 @[lang "type.bool"]
 inductive Boolean : Type :=

@@ -53,6 +53,7 @@ pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Option<Def
         _ => return None,
     };
 
+    let value = cx.zonk(value);
     let value = cx.abstract_autobound_lam(value);
     Some(DefBody { value })
 }

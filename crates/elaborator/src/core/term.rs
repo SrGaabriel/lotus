@@ -107,6 +107,20 @@ impl<'db> Term<'db> {
         Term::sort(db, Level::one(db))
     }
 
+    pub fn mk_app(db: Db<'db>, head: Term<'db>, args: impl IntoIterator<Item = Term<'db>>) -> Self {
+        args.into_iter().fold(head, |f, x| Term::app(db, f, x))
+    }
+
+    pub fn spine(&self, db: Db<'db>) -> (Term<'db>, Vec<Term<'db>>) {
+        let mut args = Vec::new();
+        let mut current = *self;
+        while let TermKind::App(f, x) = current.kind(db) {
+            args.push(*x);
+            current = *f;
+        }
+        (current, args)
+    }
+
     pub fn debug(self, db: Db<'db>) -> TermDisplay<'db> {
         TermDisplay { db, term: self }
     }
