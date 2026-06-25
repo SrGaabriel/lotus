@@ -1,58 +1,66 @@
 [workspace]
-resolver = "2"
-members = ["crates/ast", "crates/db", "crates/diagnostics","crates/driver", "crates/elaborator", "crates/lotus", "crates/lsp", "crates/pir", "crates/structure", "crates/syntax", "xtask"]
 default-members = ["crates/lotus"]
+members = ["crates/*", "xtask"]
+resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+authors = ["Gabriel"]
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/SrGaabriel/leander"
-authors = ["Gabriel"]
+version = "0.1.0"
 
 [workspace.dependencies]
 # Internal
 
 ast = { path = "crates/ast" }
 db = { path = "crates/db" }
-driver = { path = "crates/driver" }
-syntax = { path = "crates/syntax" }
 diagnostics = { path = "crates/diagnostics" }
-structure = { path = "crates/structure" }
+driver = { path = "crates/driver" }
 elaborator = { path = "crates/elaborator" }
+pir = { path = "crates/pir" }
+structure = { path = "crates/structure" }
+syntax = { path = "crates/syntax" }
 
 # External
 clap = { version = "^4.6", features = ["derive"] }
 
-cstree = { version = "^0.14", features = ["derive", "serialize", "lasso", "multi_threaded_interning"] }
+ariadne = { version = "^0.7", features = [
+    "auto-color",
+], git = "https://codeberg.org/zesterer/ariadne" }
+cstree = { version = "^0.14", features = [
+    "derive",
+    "lasso",
+    "multi_threaded_interning",
+    "serialize",
+] }
 salsa = { version = "^0.26" }
-ungrammar = "^1.16"
-ariadne = { version = "^0.7", features = ["auto-color"], git = "https://codeberg.org/zesterer/ariadne" }
 text-size = "^1.1"
+ungrammar = "^1.16"
 
 anyhow = "1"
-thiserror = "1"
+thiserror = "2"
 
 prettyplease = "^0.2"
-syn = "2"
-quote = "1"
 proc-macro2 = "1"
+quote = "1"
 strum = { version = "^0.28", features = ["derive"] }
+syn = "2"
 
 heck = "^0.5"
-rustc-hash = "^2.1"
 la-arena = "^0.3"
+rustc-hash = "^2.1"
 
-tracing = "0.1"
-tracing-subscriber = "0.3"
 tokio = { version = "^1", features = ["full"] }
 tower-lsp = "^0.20"
+tracing = "0.1"
+tracing-subscriber = "0.3"
 
 [workspace.lints.clippy]
-pedantic = { level = "warn", priority = -1 }
-must_use_candidate = "allow"
-missing_panics_doc = "allow"
-missing_errors_doc = "allow"
-return_self_not_must_use = "allow"
 cast_possible_truncation = "allow"
 disallowed_methods = "deny"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+pedantic = { level = "warn", priority = -1 }
+return_self_not_must_use = "allow"

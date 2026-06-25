@@ -34,6 +34,7 @@ use crate::{
 pub struct ElaboratedFile<'db> {
     pub namespace: Namespace<'db>,
     pub items: Vec<ElaboratedItem<'db>>,
+    pub lang_items: &'db LanguageItems<'db>,
 }
 
 pub struct ElaboratedItem<'db> {
@@ -76,9 +77,8 @@ pub trait ElabDb<'db> {
     fn signature(self, item: ItemId<'db>) -> &'db Signature<'db>;
     fn def_body(self, item: ItemId<'db>) -> &'db Option<DefBody<'db>>;
     fn inductive_data(self, item: ItemId<'db>) -> &'db InductiveData<'db>;
-    fn elaborate_decl(self, item: ItemId<'db>);
-    fn elaborate_file(self, file: SourceFile);
-    fn dbg_elaborate_file(self, file: SourceFile) -> ElaboratedFile<'db>;
+    fn elaborate_decl(self, item: ItemId<'db>) -> ElaboratedItem<'db>;
+    fn elaborate_file(self, file: SourceFile) -> ElaboratedFile<'db>;
 }
 
 impl<'db> ElabDb<'db> for Db<'db> {
@@ -110,39 +110,11 @@ impl<'db> ElabDb<'db> for Db<'db> {
         elab::inductive::inductive_data(self, item)
     }
 
-    fn elaborate_decl(self, item: ItemId<'db>) {
-        elab::elaborate_decl(self, item);
+    fn elaborate_decl(self, item: ItemId<'db>) -> ElaboratedItem<'db> {
+        elab::elaborate_decl(self, item)
     }
 
-    fn elaborate_file(self, file: SourceFile) {
-        elab::elaborate_file(self, file);
-    }
-
-    fn dbg_elaborate_file(self, file: SourceFile) -> ElaboratedFile<'db> {
-        tracing::info!("Elaborating file: {:?}", file);
-        let namespace = self.def_map(file);
-        let items = namespace
-            .decls(self)
-            .values()
-            .map(|&id| {
-                let signature = self.signature(id);
-                let def_body = if id.kind(self) == ItemKind::Def {
-                    self.def_body(id).as_ref()
-                } else {
-                    None
-                };
-                let inductive_data = match id.kind(self) {
-                    ItemKind::Inductive => Some(self.inductive_data(id)),
-                    _ => None,
-                };
-                ElaboratedItem {
-                    id,
-                    signature,
-                    def_body,
-                    inductive_data,
-                }
-            })
-            .collect();
-        ElaboratedFile { namespace, items }
+    fn elaborate_file(self, file: SourceFile) -> ElaboratedFile<'db> {
+        elab::elaborate_file(self, file)
     }
 }

@@ -111,6 +111,16 @@ impl<'db> Term<'db> {
         args.into_iter().fold(head, |f, x| Term::app(db, f, x))
     }
 
+    pub fn arity(&self, db: Db<'db>) -> usize {
+        let mut arity = 0;
+        let mut current = *self;
+        while let TermKind::Pi(_, _, body) = current.kind(db) {
+            arity += 1;
+            current = *body;
+        }
+        arity
+    }
+
     pub fn spine(&self, db: Db<'db>) -> (Term<'db>, Vec<Term<'db>>) {
         let mut args = Vec::new();
         let mut current = *self;
@@ -118,6 +128,7 @@ impl<'db> Term<'db> {
             args.push(*x);
             current = *f;
         }
+        args.reverse();
         (current, args)
     }
 
@@ -158,6 +169,25 @@ pub fn uncurry<'db>(db: Db<'db>, term: Term<'db>) -> (Term<'db>, Vec<(BinderInfo
         current = *body;
     }
     (current, args)
+}
+
+pub fn unfold<'db>(db: Db<'db>, term: Term<'db>) -> (Term<'db>, Vec<Term<'db>>) {
+    let mut args = Vec::new();
+    let mut current = term;
+    while let TermKind::App(f, x) = current.kind(db) {
+        args.push(*x);
+        current = *f;
+    }
+    args.reverse();
+    (current, args)
+}
+
+pub fn apply_many<'db>(
+    db: Db<'db>,
+    head: Term<'db>,
+    args: impl IntoIterator<Item = Term<'db>>,
+) -> Term<'db> {
+    args.into_iter().fold(head, |f, x| Term::app(db, f, x))
 }
 
 pub struct TermDisplay<'db> {

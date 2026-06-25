@@ -14,7 +14,12 @@ use elaborator::{
     ElabDatabase,
     ElabDb,
     ElaboratedFile,
-    elaborate_file,
+    ItemKind,
+};
+use pir::{
+    PirDatabase,
+    PirDb,
+    src::PirFile,
 };
 use salsa::{
     CancellationToken,
@@ -29,7 +34,6 @@ use structure::{
     Package,
     Program,
 };
-use tracing::debug;
 
 pub struct Compiler {
     db: RootDatabase,
@@ -102,14 +106,14 @@ impl Compiler {
         parse_file(&self.db, file)
     }
 
-    pub fn elaborate(&self, file: SourceFile) {
+    pub fn elaborate(&self, file: SourceFile) -> ElaboratedFile<'_> {
         let db: &dyn ElabDatabase = &self.db;
-        db.elaborate_file(file);
+        db.elaborate_file(file)
     }
 
-    pub fn dbg_elaborate(&self, file: SourceFile) -> ElaboratedFile<'_> {
-        let db: &dyn ElabDatabase = &self.db;
-        db.dbg_elaborate_file(file)
+    pub fn lower(&self, file: SourceFile) -> &PirFile<'_> {
+        let db: &dyn PirDatabase = &self.db;
+        db.lower_file(file)
     }
 
     pub fn diagnostics(&self, file: SourceFile) -> Vec<Diagnostic> {
@@ -119,11 +123,45 @@ impl Compiler {
                 .into_iter()
                 .cloned(),
         );
+        let db: &dyn ElabDatabase = &self.db;
+        let namespace = db.def_map(file);
+        let _ = db.lang_items(file);
         out.extend(
-            elaborate_file::accumulated::<Diagnostic>(&self.db, file)
+            elaborator::env::lang_items::file_lang_items::accumulated::<Diagnostic>(&self.db, file)
                 .into_iter()
                 .cloned(),
         );
+
+        for &item in namespace.decls(db).values() {
+            let _ = db.signature(item);
+            out.extend(
+                elaborator::elab::sig::signature::accumulated::<Diagnostic>(&self.db, item)
+                    .into_iter()
+                    .cloned(),
+            );
+
+            match item.kind(db) {
+                ItemKind::Def => {
+                    let _ = db.def_body(item);
+                    out.extend(
+                        elaborator::elab::def::def_body::accumulated::<Diagnostic>(&self.db, item)
+                            .into_iter()
+                            .cloned(),
+                    );
+                }
+                ItemKind::Inductive => {
+                    let _ = db.inductive_data(item);
+                    out.extend(
+                        elaborator::elab::inductive::inductive_data::accumulated::<Diagnostic>(
+                            &self.db, item,
+                        )
+                        .into_iter()
+                        .cloned(),
+                    );
+                }
+                ItemKind::Constructor => {}
+            }
+        }
         out
     }
 
@@ -152,7 +190,6 @@ impl Compiler {
             source,
         })?;
         let text: Arc<str> = Arc::from(text.into_boxed_str());
-        debug!("Interning file: {}", path.display());
         Ok(self.db.intern_file(path, text))
     }
 }

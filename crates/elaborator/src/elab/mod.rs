@@ -18,30 +18,44 @@ use db::SourceFile;
 use crate::{
     ElabDatabase,
     ElabDb,
+    ElaboratedFile,
+    ElaboratedItem,
     ids::{
         ItemId,
         ItemKind,
     },
 };
 
-#[salsa::tracked]
-pub fn elaborate_decl<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) {
-    let _ = db.signature(item);
-    match item.kind(db) {
-        ItemKind::Def => {
-            let _ = db.def_body(item);
-        }
-        ItemKind::Inductive => {
-            let _ = db.inductive_data(item);
-        }
-        ItemKind::Constructor => {}
+pub fn elaborate_decl<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> ElaboratedItem<'db> {
+    let signature = db.signature(item);
+    let def_body = if item.kind(db) == ItemKind::Def {
+        db.def_body(item).as_ref()
+    } else {
+        None
+    };
+    let inductive_data = match item.kind(db) {
+        ItemKind::Inductive => Some(db.inductive_data(item)),
+        _ => None,
+    };
+    ElaboratedItem {
+        id: item,
+        signature,
+        def_body,
+        inductive_data,
     }
 }
 
-#[salsa::tracked]
-pub fn elaborate_file(db: &dyn ElabDatabase, file: SourceFile) {
-    let ns = db.def_map(file);
-    for item in ns.decls(db).values() {
-        db.elaborate_decl(*item);
+pub fn elaborate_file(db: &dyn ElabDatabase, file: SourceFile) -> ElaboratedFile<'_> {
+    let namespace = db.def_map(file);
+    let lang_items = db.lang_items(file);
+    let items = namespace
+        .decls(db)
+        .values()
+        .map(|&id| db.elaborate_decl(id))
+        .collect();
+    ElaboratedFile {
+        namespace,
+        items,
+        lang_items,
     }
 }

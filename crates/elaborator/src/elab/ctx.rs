@@ -22,13 +22,10 @@ use crate::{
         expected::{
             Expected,
             ExpectedReason,
-        },
-        local::{
+        }, local::{
             LocalBinder,
             LocalCtx,
-        },
-        meta::MetaCtx,
-        unify::UnifyError,
+        }, meta::MetaCtx, subst::abstract_fvar, unify::UnifyError
     },
     env::{
         Namespace,
@@ -110,12 +107,14 @@ impl<'db> ElabCtx<'db> {
         ty: Term<'db>,
         info: BinderInfo,
         origin: TextRange,
+        parent: Option<Unique>,
     ) -> Unique {
         let unique = self.gen_.fresh();
         self.lctx.push(LocalBinder {
             unique,
             name,
             ty,
+            parent,
             info,
             value: None,
             origin,
@@ -244,20 +243,49 @@ impl<'db> ElabCtx<'db> {
                     (self.error_mvar(), self.error_mvar())
                 };
                 let saved_lctx = self.lctx.clone();
-                let fvar = self.fresh_fvar(name, ty, BinderInfo::Explicit, origin);
+                let fvar = self.fresh_fvar(name, ty, BinderInfo::Explicit, origin, None);
                 let (body, body_ty) = self.lower_stmt(iter, range, expected);
-                let body = self.abstract_fvar(&body, fvar);
+                let body = abstract_fvar(self.db, &body, fvar);
                 self.lctx = saved_lctx;
                 let let_expr = Term::let_(self.db, ty, value, body);
                 (let_expr, body_ty)
             }
             Some(ast::Stmt::MutationStmt(mutation)) => {
+                let name = mutation
+                    .name()
+                    .and_then(|n| n.ident())
+                    .as_ref()
+                    .map(|n| Symbol::from_str(self.db, n.text()));
+                let origin = mutation.syntax().text_range();
                 let (value, ty) = if let Some(expr) = mutation.expr() {
                     self.infer(expr)
                 } else {
                     (self.error_mvar(), self.error_mvar())
                 };
+                let saved_lctx = self.lctx.clone();
+                if name.is_none() {
+                    return (self.error_mvar(), self.error_mvar());
+                }
+
+                let Some(latest) = self.lctx.find_by_name(name.unwrap()) else {
+                    let diag = self
+                        .mk_error(
+                            origin,
+                            &format!(
+                                "cannot mutate undefined variable `{}`",
+                                name.unwrap().text(self.db)
+                            ),
+                        )
+                        .build();
+                    self.diagnostic(diag);
+                    return (self.error_mvar(), self.error_mvar());
+                };
+                let fvar =
+                    self.fresh_fvar(name, ty, BinderInfo::Explicit, origin, Some(latest.unique));
+
                 let (body, body_ty) = self.lower_stmt(iter, range, expected);
+                let body = abstract_fvar(self.db, &body, fvar);
+                self.lctx = saved_lctx;
                 let let_expr = Term::let_(self.db, ty, value, body);
                 (let_expr, body_ty)
             }
@@ -385,7 +413,7 @@ impl<'db> ElabCtx<'db> {
     fn fresh_autobound(&mut self, name: Symbol<'db>, origin: TextRange) -> Term<'db> {
         let u = self.gen_.fresh();
         let sort = Term::sort(self.db, Level::mvar(self.db, u));
-        let fvar = self.fresh_fvar(Some(name), sort, BinderInfo::Implicit, origin);
+        let fvar = self.fresh_fvar(Some(name), sort, BinderInfo::Implicit, origin, None);
         self.autobound
             .push(FreeBinder::new(fvar, BinderInfo::Implicit, sort));
         Term::fvar(self.db, fvar)
@@ -493,7 +521,7 @@ impl<'db> ElabCtx<'db> {
             self.error_mvar()
         };
 
-        let unique = self.fresh_fvar(binder_name, ty, info, binder.syntax().text_range());
+        let unique = self.fresh_fvar(binder_name, ty, info, binder.syntax().text_range(), None);
         FreeBinder::new(unique, info, ty)
     }
 
@@ -562,7 +590,7 @@ impl<'db> ElabCtx<'db> {
     ) -> Term<'db> {
         let mut term = body;
         for binder in binder_fvars.iter().rev() {
-            term = self.abstract_fvar(&term, binder.fvar);
+            term = abstract_fvar(self.db, &term, binder.fvar);
             term = mk(self.db, binder.info, binder.ty, term);
         }
         term

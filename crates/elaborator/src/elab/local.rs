@@ -15,6 +15,7 @@ use crate::{
 pub struct LocalBinder<'db> {
     pub unique: Unique,
     pub name: Option<Symbol<'db>>,
+    pub parent: Option<Unique>,
     pub ty: Term<'db>,
     pub info: BinderInfo,
     pub value: Option<Term<'db>>,

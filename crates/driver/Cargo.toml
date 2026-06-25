@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 ast.workspace = true
 db.workspace = true
+pir.workspace = true
 diagnostics.workspace = true
 elaborator.workspace = true
 salsa.workspace = true

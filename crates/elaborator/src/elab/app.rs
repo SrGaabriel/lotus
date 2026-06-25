@@ -13,6 +13,7 @@ use crate::{
             Expected,
             ExpectedReason,
         },
+        subst::instantiate,
     },
 };
 
@@ -84,7 +85,7 @@ impl<'db> AppState<'db> {
         };
 
         self.term = Term::app(cx.db, self.term, arg_term);
-        self.ty = cx.instantiate(&cod, arg_term);
+        self.ty = instantiate(cx.db, &cod, arg_term);
         true
     }
 
@@ -126,7 +127,7 @@ impl<'db> AppState<'db> {
             TermKind::Pi(info, dom, cod) if is_ordinary_implicit(*info) => {
                 let arg = cx.fresh_mvar(*dom);
                 self.term = Term::app(cx.db, self.term, arg);
-                self.ty = cx.instantiate(cod, arg);
+                self.ty = instantiate(cx.db, cod, arg);
                 Some(true)
             }
             TermKind::Pi(BinderInfo::InstanceImplicit, _, _) => {

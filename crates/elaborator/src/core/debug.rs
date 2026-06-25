@@ -41,7 +41,7 @@ fn write_item(out: &mut dyn Write, db: Db<'_>, item: &ElaboratedItem<'_>) -> fmt
     write_term(out, db, item.signature.ty, 0)?;
     writeln!(out)?;
 
-    if let Some(body) = item.def_body {
+    if let Some(body) = item.def_body.as_ref() {
         write!(out, "  := ")?;
         write_term(out, db, body.value, 0)?;
         writeln!(out)?;

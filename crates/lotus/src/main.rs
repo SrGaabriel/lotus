@@ -8,7 +8,8 @@ use diagnostics::{
     render::render,
 };
 use driver::Compiler;
-use elaborator::core::debug::debug_file;
+use elaborator::core::debug::debug_file as debug_elaborated_file;
+use pir::debug::debug_file as debug_pir_file;
 use std::path::PathBuf;
 use structure::Program;
 use tracing::info;
@@ -24,12 +25,15 @@ struct Cli {
 enum Commands {
     Parse { source: PathBuf },
     Elaborate { source: PathBuf },
+    Lower { source: PathBuf },
 }
 
 impl Cli {
     fn file(&self) -> &PathBuf {
         match &self.command {
-            Commands::Parse { source } | Commands::Elaborate { source } => source,
+            Commands::Parse { source }
+            | Commands::Elaborate { source }
+            | Commands::Lower { source } => source,
         }
     }
 }
@@ -59,9 +63,14 @@ fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
             Commands::Elaborate { .. } => {
-                let elaborated = compiler.dbg_elaborate(file);
-                let debug = debug_file(compiler.db(), &elaborated);
+                let elaborated = compiler.elaborate(file);
+                let debug = debug_elaborated_file(compiler.db(), &elaborated);
                 println!("Elaborated file: {debug}");
+            }
+            Commands::Lower { .. } => {
+                let lowered = compiler.lower(file);
+                let debug = debug_pir_file(compiler.db(), lowered);
+                println!("Lowered file: {debug}");
             }
         }
         let diagnostics = compiler.diagnostics(file);
