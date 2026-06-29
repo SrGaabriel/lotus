@@ -43,7 +43,24 @@ def id (test : h) : h := test
 def test_mutation : Unit := {
     let natural := Nat::Succ (Nat::Succ Nat::Zero);
     let list : List natural Int32 := List::Cons 1 (List::Cons 2 (List::Nil));
-    let x := 5;
+    let x := id 5;
     let natural := Nat::Succ (Nat::Succ Nat::Zero);
     x := 10;
 }
+
+def weird_number : Int32 := 0xDEADBEEF
+
+def weird_number2 : Int32 := 0b10101010
+
+def weird_number3 : Int32 := 0o1234567
+
+def weird_number4 : Int32 := 00123
+
+def weird_number5 : Int32 := 123_456_789
+
+def weird_number6 : Int32 := 5e2
+
+def weirdest_number : Int32 := 0xDEAD_BEEF
+
+def weirdest_number2 : Int32 := 0.1e1f32
+

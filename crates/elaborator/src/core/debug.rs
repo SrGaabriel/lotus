@@ -11,7 +11,6 @@ use crate::{
         BinderInfo,
         Level,
         LevelKind,
-        Literal,
         Term,
         TermKind,
     },
@@ -59,7 +58,7 @@ pub fn write_term<'db>(out: &mut dyn Write, db: Db<'db>, term: Term<'db>, prec: 
             write!(out, "Sort ")?;
             write_level(out, db, *l, 11)
         }
-        TermKind::Lit(lit) => write_lit(out, lit),
+        TermKind::Lit(lit) => write!(out, "{lit}"),
         TermKind::App(f, x) => paren(out, prec, 10, |o| {
             write_term(o, db, *f, 10)?;
             o.write_char(' ')?;
@@ -156,13 +155,6 @@ fn write_level<'db>(out: &mut dyn Write, db: Db<'db>, level: Level<'db>, prec: u
             }
             Ok(())
         }
-    }
-}
-
-fn write_lit(out: &mut dyn Write, lit: &Literal) -> fmt::Result {
-    match lit {
-        Literal::Number(n) => write!(out, "{n}"),
-        Literal::Str(s) => write!(out, "{s:?}"),
     }
 }
 

@@ -1,15 +1,16 @@
 [package]
-name = "pir"
-version.workspace = true
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
+name = "nir"
 repository.workspace = true
-authors.workspace = true
+version.workspace = true
 
 [dependencies]
 db.workspace = true
-salsa.workspace = true
 elaborator.workspace = true
+literals.workspace = true
+salsa.workspace = true
 
 [lints]
 workspace = true

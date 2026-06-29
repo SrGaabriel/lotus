@@ -1,14 +1,14 @@
 use crate::types::Type;
 
 #[salsa::tracked(debug)]
-pub struct PirFile<'db> {
+pub struct NirFile<'db> {
     #[tracked]
     #[returns(ref)]
-    pub items: Vec<PirItem<'db>>,
+    pub items: Vec<NirItem<'db>>,
 }
 
 #[salsa::tracked(debug)]
-pub struct PirItem<'db> {
+pub struct NirItem<'db> {
     #[tracked]
     pub item: elaborator::ItemId<'db>,
 

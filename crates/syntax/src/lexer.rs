@@ -229,7 +229,7 @@ impl<'a> Cursor<'a> {
             }
             c if is_op_char(c) => return self.op_ident(),
             c if c.is_ascii_digit() => {
-                self.eat_while(|c| c.is_ascii_digit());
+                self.number(c);
                 TokenKind::Number
             }
 
@@ -300,6 +300,33 @@ impl<'a> Cursor<'a> {
         let len = self.pos_in_token();
         self.reset_pos();
         RawToken::new(kind, len)
+    }
+
+    fn number(&mut self, c: char) {
+        let mut number = c.to_string();
+        if c == '0' && matches!(self.first(), 'x' | 'X' | 'b' | 'B' | 'o' | 'O') {
+            number.push(self.bump().unwrap());
+            self.read_while_to(&mut number, |c| c.is_ascii_hexdigit() || c == '_');
+        } else {
+            self.read_while_to(&mut number, |c| c.is_ascii_digit() || c == '_');
+        }
+        if matches!(self.first(), '.' | 'e' | 'E') {
+            if self.first() == '.' {
+                number.push(self.bump().unwrap());
+                self.read_while_to(&mut number, |c| c.is_ascii_digit());
+            }
+            if matches!(self.first(), 'e' | 'E') {
+                number.push(self.bump().unwrap());
+                if matches!(self.first(), '+' | '-') {
+                    number.push(self.bump().unwrap());
+                }
+                self.read_while_to(&mut number, |c| c.is_ascii_digit());
+            }
+        }
+        if matches!(self.first(), 'u' | 'i' | 'f') {
+            number.push(self.bump().unwrap());
+            self.read_while_to(&mut number, |c| c.is_ascii_digit());
+        }
     }
 
     fn op_ident(&mut self) -> RawToken {

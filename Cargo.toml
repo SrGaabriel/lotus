@@ -12,49 +12,46 @@ version = "0.1.0"
 
 [workspace.dependencies]
 # Internal
-
 ast = { path = "crates/ast" }
 db = { path = "crates/db" }
 diagnostics = { path = "crates/diagnostics" }
 driver = { path = "crates/driver" }
 elaborator = { path = "crates/elaborator" }
-pir = { path = "crates/pir" }
+literals = { path = "crates/literals" }
+nir = { path = "crates/nir" }
 structure = { path = "crates/structure" }
 syntax = { path = "crates/syntax" }
 
 # External
-clap = { version = "^4.6", features = ["derive"] }
-
+anyhow = "1"
 ariadne = { version = "^0.7", features = [
     "auto-color",
 ], git = "https://codeberg.org/zesterer/ariadne" }
+clap = { version = "^4.6", features = ["derive"] }
 cstree = { version = "^0.14", features = [
     "derive",
     "lasso",
     "multi_threaded_interning",
     "serialize",
 ] }
-salsa = { version = "^0.26" }
-text-size = "^1.1"
-ungrammar = "^1.16"
-
-anyhow = "1"
-thiserror = "2"
-
+heck = "^0.5"
+la-arena = "^0.3"
+num-bigint = "^0.4"
+num-rational = "^0.4"
 prettyplease = "^0.2"
 proc-macro2 = "1"
 quote = "1"
+rustc-hash = "^2.1"
+salsa = { version = "^0.26" }
 strum = { version = "^0.28", features = ["derive"] }
 syn = "2"
-
-heck = "^0.5"
-la-arena = "^0.3"
-rustc-hash = "^2.1"
-
+text-size = "^1.1"
+thiserror = "2"
 tokio = { version = "^1", features = ["full"] }
 tower-lsp = "^0.20"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+ungrammar = "^1.16"
 
 [workspace.lints.clippy]
 cast_possible_truncation = "allow"

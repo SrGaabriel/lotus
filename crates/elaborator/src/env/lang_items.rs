@@ -30,6 +30,18 @@ pub enum LangItem {
     Int32,
     #[strum(serialize = "type.int64")]
     Int64,
+    #[strum(serialize = "type.uint8")]
+    UInt8,
+    #[strum(serialize = "type.uint16")]
+    UInt16,
+    #[strum(serialize = "type.uint32")]
+    UInt32,
+    #[strum(serialize = "type.uint64")]
+    UInt64,
+    #[strum(serialize = "type.float32")]
+    Float32,
+    #[strum(serialize = "type.float64")]
+    Float64,
     #[strum(serialize = "type.str")]
     Str,
     #[strum(serialize = "type.unit")]

@@ -22,10 +22,7 @@ pub fn whnf<'db>(db: &'db dyn ElabDatabase, term: Term<'db>) -> Term<'db> {
     whnf_with_mvars(db, term, |_| None)
 }
 
-pub fn whnf_spine<'db>(
-    db: &'db dyn ElabDatabase,
-    term: Term<'db>,
-) -> (Term<'db>, Vec<Term<'db>>) {
+pub fn whnf_spine<'db>(db: &'db dyn ElabDatabase, term: Term<'db>) -> (Term<'db>, Vec<Term<'db>>) {
     let mut current = whnf(db, term);
     let mut args = Vec::new();
 
@@ -60,35 +57,35 @@ fn whnf_with_mvars<'db>(
     resolve_mvar: impl Fn(Unique) -> Option<Term<'db>> + Copy,
 ) -> Term<'db> {
     match term.kind(db) {
-            TermKind::App(f, x) => {
+        TermKind::App(f, x) => {
             let f = whnf_with_mvars(db, *f, resolve_mvar);
             if let TermKind::Lam(_, _, body) = f.kind(db) {
                 whnf_with_mvars(db, instantiate(db, body, *x), resolve_mvar)
-                } else {
+            } else {
                 Term::app(db, f, *x)
-                }
             }
+        }
 
-            TermKind::MVar(u) => {
+        TermKind::MVar(u) => {
             if let Some(value) = resolve_mvar(*u) {
                 whnf_with_mvars(db, value, resolve_mvar)
-                } else {
-                    term
-                }
+            } else {
+                term
             }
+        }
 
         TermKind::Let(_, value, body) => {
             whnf_with_mvars(db, instantiate(db, body, *value), resolve_mvar)
         }
 
-            TermKind::Const(name) => {
+        TermKind::Const(name) => {
             if let Some(body) = db.def_body(*name) {
                 whnf_with_mvars(db, body.value, resolve_mvar)
-                } else {
-                    term
-                }
+            } else {
+                term
             }
-
-            _ => term,
         }
+
+        _ => term,
+    }
 }

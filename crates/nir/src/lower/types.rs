@@ -13,14 +13,11 @@ use elaborator::{
 };
 
 use crate::{
-    PirDatabase,
-    types::{
-        Type,
-        TypeArg,
-    },
+    NirDatabase,
+    types::Type,
 };
 
-pub fn lower_type<'db>(db: &'db dyn PirDatabase, ty: Term<'db>) -> Option<Type<'db>> {
+pub fn lower_type<'db>(db: &'db dyn NirDatabase, ty: Term<'db>) -> Option<Type<'db>> {
     TypeLoweringCtx::new(db).lower_type(ty)
 }
 
@@ -37,13 +34,13 @@ enum ArgKind {
 }
 
 struct TypeLoweringCtx<'db> {
-    db: &'db dyn PirDatabase,
+    db: &'db dyn NirDatabase,
     binders: Vec<Binder>,
     next_param: usize,
 }
 
 impl<'db> TypeLoweringCtx<'db> {
-    fn new(db: &'db dyn PirDatabase) -> Self {
+    fn new(db: &'db dyn NirDatabase) -> Self {
         Self {
             db,
             binders: Vec::new(),
@@ -88,8 +85,11 @@ impl<'db> TypeLoweringCtx<'db> {
                 let args = args
                     .iter()
                     .zip(arg_kinds)
-                    .map(|(arg, kind)| self.lower_type_arg(*arg, kind))
-                    .collect::<Vec<_>>();
+                    .filter_map(|(arg, kind)| match kind {
+                        ArgKind::Type => self.lower_type(*arg),
+                        ArgKind::Index => None,
+                    })
+                    .collect();
 
                 Some(Type::Adt { id, args })
             }
@@ -107,18 +107,6 @@ impl<'db> TypeLoweringCtx<'db> {
             }
 
             ItemKind::Constructor => None,
-        }
-    }
-
-    fn lower_type_arg(&mut self, arg: Term<'db>, kind: ArgKind) -> TypeArg<'db> {
-        match kind {
-            ArgKind::Type => {
-                let ty = self.lower_type(arg).unwrap_or_else(|| {
-                    Type::Todo(format!("erased type argument {}", arg.debug(self.db)))
-                });
-                TypeArg::Type(ty)
-            }
-            ArgKind::Index => TypeArg::Index(whnf(self.db, arg)),
         }
     }
 

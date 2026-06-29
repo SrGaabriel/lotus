@@ -1,8 +1,14 @@
+use std::str::FromStr;
+
 use ast::traits::AstNode;
 use diagnostics::{
     Diagnostic,
     Label,
     builder::DiagnosticBuilder,
+};
+use literals::{
+    Literal,
+    NumberLiteral,
 };
 use salsa::Accumulator;
 use text_size::TextRange;
@@ -15,17 +21,20 @@ use crate::{
         BinderInfo,
         FreeBinder,
         Level,
-        Literal,
         Term,
     },
     elab::{
         expected::{
             Expected,
             ExpectedReason,
-        }, local::{
+        },
+        local::{
             LocalBinder,
             LocalCtx,
-        }, meta::MetaCtx, subst::abstract_fvar, unify::UnifyError
+        },
+        meta::MetaCtx,
+        subst::abstract_fvar,
+        unify::UnifyError,
     },
     env::{
         Namespace,
@@ -175,8 +184,11 @@ impl<'db> ElabCtx<'db> {
     pub fn infer(&mut self, expr: ast::Expr) -> (Term<'db>, Term<'db>) {
         match expr {
             ast::Expr::Literal(lit) => {
+                let span = lit.syntax().text_range();
                 let term = self.lower_literal(lit.clone());
-                let ty = self.literal_type(lit);
+                let ty = self
+                    .infer_term_with_diagnostics(term, span)
+                    .unwrap_or_else(|| self.error_mvar());
                 (term, ty)
             }
             ast::Expr::Name(name) => self.resolve_name(&name),
@@ -322,26 +334,24 @@ impl<'db> ElabCtx<'db> {
     fn lower_literal(&mut self, lit: ast::Literal) -> Term<'db> {
         match lit {
             ast::Literal::NumberLit(num) => {
-                let Some(value) = num.text().and_then(|s| s.parse::<u64>().ok()) else {
+                let Some(text) = num.text() else {
                     return self.error_mvar();
                 };
-                Term::lit(self.db, Literal::Number(value))
+                match NumberLiteral::from_str(text) {
+                    Ok(number) => Term::lit(self.db, Literal::Numeric(number)),
+                    Err(e) => {
+                        let diagnostic = self.mk_error(num.syntax().text_range(), &e.to_string());
+                        self.diagnostic(diagnostic.build());
+                        self.error_mvar()
+                    }
+                }
             }
             ast::Literal::StringLit(s) => {
                 let Some(value) = s.unquoted().map(std::string::ToString::to_string) else {
                     return self.error_mvar();
                 };
-                Term::lit(self.db, Literal::Str(value))
+                Term::lit(self.db, Literal::Text(value))
             }
-        }
-    }
-
-    fn literal_type(&mut self, lit: ast::Literal) -> Term<'db> {
-        match lit {
-            ast::Literal::NumberLit(num) => {
-                self.lang_item(&LangItem::Int32, num.syntax().text_range())
-            }
-            ast::Literal::StringLit(s) => self.lang_item(&LangItem::Str, s.syntax().text_range()),
         }
     }
 

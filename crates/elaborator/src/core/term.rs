@@ -1,3 +1,5 @@
+use literals::Literal;
+
 use crate::{
     Db,
     ids::{
@@ -25,12 +27,6 @@ pub enum BinderInfo {
     Implicit,
     InstanceImplicit,
     StrictImplicit,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, salsa::Update)]
-pub enum Literal {
-    Number(u64),
-    Str(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, salsa::Update)]

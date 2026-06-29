@@ -9,7 +9,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/elaborator/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/lotus/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/lsp/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/pir/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/nir/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/structure/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/syntax/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/xtask/src" isTestSource="false" />

@@ -3,6 +3,7 @@ pub mod ctx;
 pub mod def;
 pub mod expected;
 pub mod inductive;
+pub mod infer;
 pub mod local;
 pub mod meta;
 pub mod reduce;

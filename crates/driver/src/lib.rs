@@ -16,10 +16,10 @@ use elaborator::{
     ElaboratedFile,
     ItemKind,
 };
-use pir::{
-    PirDatabase,
-    PirDb,
-    src::PirFile,
+use nir::{
+    NirDatabase,
+    NirDb,
+    src::NirFile,
 };
 use salsa::{
     CancellationToken,
@@ -111,8 +111,8 @@ impl Compiler {
         db.elaborate_file(file)
     }
 
-    pub fn lower(&self, file: SourceFile) -> &PirFile<'_> {
-        let db: &dyn PirDatabase = &self.db;
+    pub fn lower(&self, file: SourceFile) -> &NirFile<'_> {
+        let db: &dyn NirDatabase = &self.db;
         db.lower_file(file)
     }
 

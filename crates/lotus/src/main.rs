@@ -9,7 +9,7 @@ use diagnostics::{
 };
 use driver::Compiler;
 use elaborator::core::debug::debug_file as debug_elaborated_file;
-use pir::debug::debug_file as debug_pir_file;
+use nir::debug::debug_file as debug_nir_file;
 use std::path::PathBuf;
 use structure::Program;
 use tracing::info;
@@ -69,7 +69,7 @@ fn main() -> anyhow::Result<()> {
             }
             Commands::Lower { .. } => {
                 let lowered = compiler.lower(file);
-                let debug = debug_pir_file(compiler.db(), lowered);
+                let debug = debug_nir_file(compiler.db(), lowered);
                 println!("Lowered file: {debug}");
             }
         }
