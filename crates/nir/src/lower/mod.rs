@@ -1,9 +1,15 @@
-use crate::src::{
-    NirFile,
-    NirItem,
+use crate::{
+    lower::expr::lower_body,
+    src::{
+        NirFile,
+        NirItem,
+    },
 };
 use db::SourceFile;
-use elaborator::ItemId;
+use elaborator::{
+    ItemId,
+    elab::def::def_body,
+};
 
 use crate::NirDatabase;
 
@@ -26,6 +32,8 @@ pub fn lower_file(db: &dyn NirDatabase, file: SourceFile) -> NirFile<'_> {
 pub fn lower_item<'db>(db: &'db dyn NirDatabase, item: ItemId<'db>) -> Option<NirItem<'db>> {
     let signature = elaborator::elab::sig::signature(db, item);
     let ty = types::lower_type(db, signature.ty)?;
+    let def_body = def_body(db, item).to_owned()?.value;
+    let _body = lower_body(db, item, def_body);
 
     Some(NirItem::new(db, item, ty))
 }

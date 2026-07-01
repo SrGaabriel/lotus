@@ -7,7 +7,10 @@ pub enum Atom<'db> {
     Local(LocalId),
     Global(ItemId<'db>),
     Literal(Literal),
-    Erased,
+}
+
+pub enum StaticArg<'db> {
+    Type(Type<'db>),
 }
 
 pub enum LetValue<'db> {
@@ -15,11 +18,13 @@ pub enum LetValue<'db> {
 
     Call {
         callee: Atom<'db>,
+        static_args: Vec<StaticArg<'db>>,
         args: Vec<Atom<'db>>,
     },
 
     Constructor {
         ctor: ItemId<'db>,
+        static_args: Vec<StaticArg<'db>>,
         args: Vec<Atom<'db>>,
     },
 

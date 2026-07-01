@@ -833,6 +833,7 @@ dependencies = [
  "elaborator",
  "literals",
  "salsa",
+ "text-size",
 ]
 
 [[package]]
