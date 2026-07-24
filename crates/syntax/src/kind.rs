@@ -57,6 +57,8 @@ pub enum SyntaxKind {
     ReturnKw,
     #[static_text("inductive")]
     InductiveKw,
+    #[static_text("import")]
+    ImportKw,
 
     // === Nodes ===
     SourceFile,
@@ -83,6 +85,9 @@ pub enum SyntaxKind {
     MutationStmt,
     ReturnStmt,
     Attribute,
+    ImportDecl,
+    ImportList,
+    ImportGroup,
 }
 
 impl SyntaxKind {
@@ -110,6 +115,7 @@ impl SyntaxKind {
             TokenKind::LetKw => Self::LetKw,
             TokenKind::ReturnKw => Self::ReturnKw,
             TokenKind::InductiveKw => Self::InductiveKw,
+            TokenKind::ImportKw => Self::ImportKw,
             TokenKind::Colon => Self::Colon,
             TokenKind::ColonColon => Self::ColonColon,
             TokenKind::RArrow => Self::RArrow,

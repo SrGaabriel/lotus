@@ -1,0 +1,4 @@
+import test;
+import foo::bar;
+import foo::fool::bar;
+import foo::[bar];

@@ -224,6 +224,100 @@ impl ConstructorDecl {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
+pub struct ImportDecl(ResolvedNode);
+impl AstNode for ImportDecl {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::ImportDecl
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl ImportDecl {
+    pub fn import_kw(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::ImportKw)
+    }
+    pub fn import_group(&self) -> Option<ImportGroup> {
+        child(&self.0)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct ImportGroup(ResolvedNode);
+impl AstNode for ImportGroup {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::ImportGroup
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl ImportGroup {
+    pub fn path(&self) -> AstChildren<'_, PathSegment> {
+        children(&self.0)
+    }
+    pub fn import_target(&self) -> Option<ImportTarget> {
+        child(&self.0)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct PathSegment(ResolvedNode);
+impl AstNode for PathSegment {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::PathSegment
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl PathSegment {
+    pub fn identifier(&self) -> Option<Identifier> {
+        child(&self.0)
+    }
+    pub fn colon_colon(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::ColonColon)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct ImportList(ResolvedNode);
+impl AstNode for ImportList {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::ImportList
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl ImportList {
+    pub fn l_bracket(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::LBracket)
+    }
+    pub fn import_group(&self) -> AstChildren<'_, ImportGroup> {
+        children(&self.0)
+    }
+    pub fn comma(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::Comma)
+    }
+    pub fn r_bracket(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::RBracket)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct ParenExpr(ResolvedNode);
 impl AstNode for ParenExpr {
     fn can_cast(k: SyntaxKind) -> bool {
@@ -660,28 +754,6 @@ impl ParenType {
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[repr(transparent)]
-pub struct PathSegment(ResolvedNode);
-impl AstNode for PathSegment {
-    fn can_cast(k: SyntaxKind) -> bool {
-        k == SyntaxKind::PathSegment
-    }
-    fn cast(node: ResolvedNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self(node))
-    }
-    fn syntax(&self) -> &ResolvedNode {
-        &self.0
-    }
-}
-impl PathSegment {
-    pub fn colon_colon(&self) -> Option<ResolvedToken> {
-        token(&self.0, SyntaxKind::ColonColon)
-    }
-    pub fn identifier(&self) -> Option<Identifier> {
-        child(&self.0)
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Decl {
     DefDecl(DefDecl),
     InductiveDecl(InductiveDecl),
@@ -775,6 +847,31 @@ impl AstNode for Expr {
             Self::Literal(it) => it.syntax(),
             Self::Name(it) => it.syntax(),
             Self::AppExpr(it) => it.syntax(),
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ImportTarget {
+    ImportList(ImportList),
+    Identifier(Identifier),
+}
+impl AstNode for ImportTarget {
+    fn can_cast(k: SyntaxKind) -> bool {
+        ImportList::can_cast(k) || Identifier::can_cast(k)
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        if let Some(it) = ImportList::cast(node.clone()) {
+            return Some(Self::ImportList(it));
+        }
+        if let Some(it) = Identifier::cast(node.clone()) {
+            return Some(Self::Identifier(it));
+        }
+        None
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        match self {
+            Self::ImportList(it) => it.syntax(),
+            Self::Identifier(it) => it.syntax(),
         }
     }
 }

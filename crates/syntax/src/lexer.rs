@@ -16,6 +16,7 @@ pub enum TokenKind {
     LetKw,
     ReturnKw,
     InductiveKw,
+    ImportKw,
 
     String,
     Number,
@@ -55,6 +56,7 @@ impl TokenKind {
             Self::OpIdentifier => "operator identifier",
             Self::DefKw => "'def'",
             Self::InductiveKw => "'inductive'",
+            Self::ImportKw => "'import'",
             Self::LetKw => "'let'",
             Self::ReturnKw => "'return'",
             Self::Number => "number",
@@ -295,6 +297,7 @@ impl<'a> Cursor<'a> {
             "let" => TokenKind::LetKw,
             "return" => TokenKind::ReturnKw,
             "inductive" => TokenKind::InductiveKw,
+            "import" => TokenKind::ImportKw,
             _ => TokenKind::Identifier,
         };
         let len = self.pos_in_token();

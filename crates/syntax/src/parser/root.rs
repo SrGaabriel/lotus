@@ -4,14 +4,20 @@ use crate::{
     lexer::TokenKind,
     parser::{
         Parser,
-        expr::EXPR_FIRST,
+        expr::{EXPR_FIRST, SEMI_FOLLOW},
         marker::Marker,
     },
 };
 use diagnostics::Severity;
 
-pub const DECL_FIRST: TokenSet =
-    TokenSet::new(&[TokenKind::DefKw, TokenKind::InductiveKw, TokenKind::At]);
+pub const DECL_FIRST: TokenSet = TokenSet::new(&[
+    TokenKind::DefKw,
+    TokenKind::InductiveKw,
+    TokenKind::At,
+    TokenKind::ImportKw,
+]);
+pub const SHORT_END: TokenSet =
+    DECL_FIRST.union(TokenSet::new(&[TokenKind::Semicolon, TokenKind::RBracket]));
 
 impl Parser<'_> {
     pub fn at_decl_start(&self) -> bool {
@@ -49,6 +55,7 @@ impl Parser<'_> {
         match peek {
             TokenKind::DefKw => self.parse_def_decl(m),
             TokenKind::InductiveKw => self.parse_inductive_decl(m),
+            TokenKind::ImportKw => self.parse_import_decl(m),
             _ => {
                 self.error_expected("a declaration (`def` or `inductive`)", DECL_FIRST);
                 m.complete(self, SyntaxKind::Error);
@@ -188,6 +195,30 @@ impl Parser<'_> {
         }
 
         m.complete(self, SyntaxKind::ConstructorDecl);
+    }
+
+    pub fn parse_import_decl(&mut self, m: Marker) {
+        self.bump_remap(SyntaxKind::ImportKw);
+        self.parse_import_group();
+        self.expect_semicolon(SEMI_FOLLOW, SHORT_END);
+        m.complete(self, SyntaxKind::ImportDecl);
+    }
+
+    pub fn parse_import_group(&mut self) {
+        let m = self.start();
+        self.parse_path(SHORT_END);
+        if self.check_at(TokenKind::LBracket) {
+            self.bump_remap(SyntaxKind::LBracket);
+            let g = self.start();
+            self.sep_by_until(TokenKind::Comma, TokenKind::RBracket, SHORT_END, |p| {
+                p.parse_import_group();
+            });
+            g.complete(self, SyntaxKind::ImportGroup);
+        } else if self.at(TokenKind::Identifier) {
+            self.parse_identifier(SHORT_END);
+        }
+
+        m.complete(self, SyntaxKind::ImportGroup);
     }
 
     pub fn parse_attr(&mut self) {

@@ -4,20 +4,24 @@ use crate::lexer::TokenKind;
 pub struct TokenSet(u128);
 
 impl TokenSet {
-    pub const EMPTY: TokenSet = TokenSet(0);
+    pub const EMPTY: Self = Self(0);
 
-    pub const fn new(kinds: &[TokenKind]) -> TokenSet {
+    pub const fn new(kinds: &[TokenKind]) -> Self {
         let mut bits = 0u128;
         let mut i = 0;
         while i < kinds.len() {
             bits |= mask(kinds[i]);
             i += 1;
         }
-        TokenSet(bits)
+        Self(bits)
     }
 
-    pub const fn union(self, other: TokenSet) -> TokenSet {
-        TokenSet(self.0 | other.0)
+    pub const fn of(kind: TokenKind) -> Self {
+        Self(mask(kind))
+    }
+
+    pub const fn union(self, other: Self) -> Self {
+        Self(self.0 | other.0)
     }
 
     pub const fn contains(self, k: TokenKind) -> bool {

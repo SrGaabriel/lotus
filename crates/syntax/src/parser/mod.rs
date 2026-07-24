@@ -1,3 +1,4 @@
+pub mod core;
 pub mod expr;
 pub mod marker;
 pub mod root;
@@ -209,6 +210,22 @@ impl<'input> Parser<'input> {
         self.expected.clear();
     }
 
+    pub fn sep_by_until(
+        &mut self,
+        separator: TokenKind,
+        end: TokenKind,
+        recovery: TokenSet,
+        parser: impl Fn(&mut Self)
+    ) {
+        while !self.at(end) && !self.at(TokenKind::Eof) {
+            parser(self);
+            if !self.eat(separator) {
+                self.expect_recover(end, recovery);
+                break;
+            }
+        }
+    }
+
     pub fn bump_remap(&mut self, kind: SyntaxKind) {
         self.eat_trivia();
         let Some(tok) = self.tokens.get(self.cursor).copied() else {
@@ -264,11 +281,11 @@ impl<'input> Parser<'input> {
         false
     }
 
-    pub fn expect_semi(&mut self, follow: TokenSet, recovery: TokenSet) -> bool {
+    pub fn expect_semicolon(&mut self, follow: TokenSet, recovery: TokenSet) -> bool {
         if self.eat(TokenKind::Semicolon) {
             return true;
         }
-        if self.has_newline_before(0) && (self.at(TokenKind::Eof) || self.at_ts(follow)) {
+        if self.has_newline_before(0) {
             self.expected.clear();
             let prev_end = self.prev_range().map(TextRange::end).unwrap_or_default();
             let span = TextRange::empty(prev_end);

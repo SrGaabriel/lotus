@@ -25,7 +25,11 @@ pub const EXPR_RECOVERY: TokenSet = TokenSet::new(&[
 pub const STMT_FIRST: TokenSet = TokenSet::new(&[TokenKind::LetKw, TokenKind::Identifier]);
 pub const STMT_SYNC: TokenSet =
     STMT_FIRST.union(TokenSet::new(&[TokenKind::RBrace, TokenKind::Eof]));
-const SEMI_FOLLOW: TokenSet = STMT_FIRST.union(TokenSet::new(&[TokenKind::RBrace]));
+pub const SEMI_FOLLOW: TokenSet = STMT_FIRST.union(TokenSet::new(&[
+    TokenKind::RBrace,
+    TokenKind::RBracket,
+    TokenKind::Identifier,
+]));
 const SEMI_SET: TokenSet = TokenSet::new(&[TokenKind::Semicolon]);
 
 pub const BINDER_FIRST: TokenSet =
@@ -141,7 +145,7 @@ impl Parser<'_> {
         let m = self.start();
         self.bump_remap(SyntaxKind::ReturnStmt);
         self.parse_expr(recovery);
-        self.expect_semi(SEMI_FOLLOW, recovery);
+        self.expect_semicolon(SEMI_FOLLOW, recovery);
         m.complete(self, SyntaxKind::ReturnStmt);
     }
 
@@ -157,29 +161,14 @@ impl Parser<'_> {
         }
         let eq_label = self.label(self.prev_range().unwrap(), "`:=` here");
         self.with_label(eq_label, |p| p.parse_expr(recovery.union(SEMI_SET)));
-        self.expect_semi(SEMI_FOLLOW, recovery);
+        self.expect_semicolon(SEMI_FOLLOW, recovery);
         m.complete(self, kind);
     }
 
     pub fn parse_name_expr(&mut self, recovery: TokenSet) -> CompletedMarker {
         let m = self.start();
-        loop {
-            if let Some(next) = self.peek_nth(1)
-                && next.kind == TokenKind::ColonColon
-            {
-                let ps = self.start();
-                let ident = self.start();
-                self.expect_recover(TokenKind::Identifier, recovery);
-                ident.complete(self, SyntaxKind::Identifier);
-                self.bump();
-                ps.complete(self, SyntaxKind::PathSegment);
-            } else {
-                let ident = self.start();
-                self.expect_recover(TokenKind::Identifier, recovery);
-                ident.complete(self, SyntaxKind::Identifier);
-                break;
-            }
-        }
+        self.parse_path(recovery);
+        self.parse_identifier(recovery);
         m.complete(self, SyntaxKind::Name)
     }
 

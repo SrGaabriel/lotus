@@ -1,3 +1,7 @@
+import ind;
+import ind::[fn];
+import ind::hello::[fn,namespace::[ola],world];
+
 inductive Nat : Type :=
       Zero : Nat
     | Succ : Nat -> Nat;
@@ -63,4 +67,3 @@ def weird_number6 : Int32 := 5e2
 def weirdest_number : Int32 := 0xDEAD_BEEF
 
 def weirdest_number2 : Int32 := 0.1e1f32
-

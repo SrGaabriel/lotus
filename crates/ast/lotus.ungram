@@ -16,6 +16,18 @@ InductiveConstructors =
 ConstructorDecl =
   Attribute* ident:Identifier binders:Binder* return_type:ReturnType
 
+ImportDecl =
+  'import' ImportGroup
+
+ImportGroup =
+  path:PathSegment* ImportTarget?
+
+ImportTarget =
+  ImportList | Identifier
+
+ImportList =
+  '[' (ImportGroup ',')* ']'
+
 ReturnType =
   ':' Type
 
@@ -37,7 +49,7 @@ Stmt =
 LetStmt =
   'let' name:Identifier TypeAnnotation? ':=' expr:Expr ';'
 
-TypeAnnotation = 
+TypeAnnotation =
   ':' Type
 
 MutationStmt =
@@ -80,7 +92,7 @@ Name =
   path:PathSegment* member:Identifier
 
 PathSegment =
-  '::' Identifier
+  Identifier '::'
 
 Identifier =
   'ident'
