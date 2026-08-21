@@ -215,7 +215,7 @@ impl<'input> Parser<'input> {
         separator: TokenKind,
         end: TokenKind,
         recovery: TokenSet,
-        parser: impl Fn(&mut Self)
+        parser: impl Fn(&mut Self),
     ) {
         while !self.at(end) && !self.at(TokenKind::Eof) {
             parser(self);

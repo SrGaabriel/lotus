@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use elaborator::{
     ItemId,
     core::{
-        BinderInfo, Term, TermKind
+        BinderInfo,
+        Term,
+        TermKind,
     },
     elab::{
         ctx::ElabCtx,
@@ -82,7 +84,7 @@ impl<'db> ExprLoweringCtx<'db> {
 
             TermKind::App(..) => {
                 todo!("lower runtime applications")
-            },
+            }
 
             TermKind::Lam(..) => todo!("lower runtime lambdas with static and runtime parameters"),
 

@@ -1,0 +1,3 @@
+import prim::Nat;
+
+def natural : Type := Nat

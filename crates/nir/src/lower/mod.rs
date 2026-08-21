@@ -18,10 +18,10 @@ pub mod types;
 
 #[salsa::tracked(returns(ref))]
 pub fn lower_file(db: &dyn NirDatabase, file: SourceFile) -> NirFile<'_> {
-    let namespace = elaborator::env::def_map::def_map(db, file);
-    let items = namespace
-        .decls(db)
-        .values()
+    let items = elaborator::env::item_tree::item_tree(db, file)
+        .items(db)
+        .iter()
+        .filter(|item| item.parent(db).is_none())
         .filter_map(|&item| lower_item(db, item))
         .collect();
 

@@ -757,10 +757,11 @@ impl ParenType {
 pub enum Decl {
     DefDecl(DefDecl),
     InductiveDecl(InductiveDecl),
+    ImportDecl(ImportDecl),
 }
 impl AstNode for Decl {
     fn can_cast(k: SyntaxKind) -> bool {
-        DefDecl::can_cast(k) || InductiveDecl::can_cast(k)
+        DefDecl::can_cast(k) || InductiveDecl::can_cast(k) || ImportDecl::can_cast(k)
     }
     fn cast(node: ResolvedNode) -> Option<Self> {
         if let Some(it) = DefDecl::cast(node.clone()) {
@@ -769,12 +770,16 @@ impl AstNode for Decl {
         if let Some(it) = InductiveDecl::cast(node.clone()) {
             return Some(Self::InductiveDecl(it));
         }
+        if let Some(it) = ImportDecl::cast(node.clone()) {
+            return Some(Self::ImportDecl(it));
+        }
         None
     }
     fn syntax(&self) -> &ResolvedNode {
         match self {
             Self::DefDecl(it) => it.syntax(),
             Self::InductiveDecl(it) => it.syntax(),
+            Self::ImportDecl(it) => it.syntax(),
         }
     }
 }

@@ -49,9 +49,11 @@ pub fn elaborate_decl<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Elab
 pub fn elaborate_file(db: &dyn ElabDatabase, file: SourceFile) -> ElaboratedFile<'_> {
     let namespace = db.def_map(file);
     let lang_items = db.lang_items(file);
-    let items = namespace
-        .decls(db)
-        .values()
+    let items = db
+        .item_tree(file)
+        .items(db)
+        .iter()
+        .filter(|id| id.parent(db).is_none())
         .map(|&id| db.elaborate_decl(id))
         .collect();
     ElaboratedFile {

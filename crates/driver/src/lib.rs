@@ -1,3 +1,5 @@
+#![feature(iterator_try_collect)]
+
 use ast::{
     Parse,
     SourceFile as AstSourceFile,
@@ -25,15 +27,13 @@ use salsa::{
     CancellationToken,
     Database,
     Durability,
+    Setter,
 };
 use std::{
     path::PathBuf,
     sync::Arc,
 };
-use structure::{
-    Package,
-    Program,
-};
+use structure::Program;
 
 pub struct Compiler {
     db: RootDatabase,
@@ -78,22 +78,26 @@ impl Compiler {
     }
 
     pub fn ingest_program(&mut self, program: Program) -> Result<SourceRoot, IngestError> {
-        let (name, files, entrypoint) = match program {
-            Program::File(path) => {
-                let name = stem_or_default(&path, "main");
-                let entry = self.read_and_intern(path)?;
-                (name, vec![entry], Some(entry))
-            }
-            Program::Package(Package { name, files, .. }) => {
-                let mut interned = Vec::with_capacity(files.len());
-                for path in files {
-                    interned.push(self.read_and_intern(path)?);
-                }
-                (name, interned, None)
-            }
+        let main = if let Some(main) = program.main {
+            Some(self.read_and_intern(main)?)
+        } else {
+            None
         };
+        let source_files: Vec<_> = program
+            .files
+            .into_iter()
+            .map(|p| self.read_and_intern(p))
+            .try_collect()?;
 
-        let root = SourceRoot::new(&self.db, name, files, entrypoint);
+        let root = if let Some(root) = self.root {
+            root.set_name(&mut self.db).to(program.name);
+            root.set_path(&mut self.db).to(program.root);
+            root.set_files(&mut self.db).to(source_files);
+            root.set_entrypoint(&mut self.db).to(main);
+            root
+        } else {
+            SourceRoot::new(&self.db, program.name, program.root, source_files, main)
+        };
         self.root = Some(root);
         Ok(root)
     }
@@ -124,7 +128,12 @@ impl Compiler {
                 .cloned(),
         );
         let db: &dyn ElabDatabase = &self.db;
-        let namespace = db.def_map(file);
+        let _ = db.def_map(file);
+        out.extend(
+            elaborator::env::def_map::def_map::accumulated::<Diagnostic>(&self.db, file)
+                .into_iter()
+                .cloned(),
+        );
         let _ = db.lang_items(file);
         out.extend(
             elaborator::env::lang_items::file_lang_items::accumulated::<Diagnostic>(&self.db, file)
@@ -132,7 +141,14 @@ impl Compiler {
                 .cloned(),
         );
 
-        for &item in namespace.decls(db).values() {
+        let items: Vec<_> = db
+            .item_tree(file)
+            .items(db)
+            .iter()
+            .copied()
+            .filter(|item| item.parent(db).is_none())
+            .collect();
+        for item in items {
             let _ = db.signature(item);
             out.extend(
                 elaborator::elab::sig::signature::accumulated::<Diagnostic>(&self.db, item)
@@ -162,6 +178,7 @@ impl Compiler {
                 ItemKind::Constructor => {}
             }
         }
+        out.dedup();
         out
     }
 
@@ -198,10 +215,4 @@ impl Default for Compiler {
     fn default() -> Self {
         Self::new()
     }
-}
-
-fn stem_or_default(path: &std::path::Path, default: &str) -> String {
-    path.file_stem()
-        .and_then(|s| s.to_str())
-        .map_or_else(|| default.to_string(), str::to_string)
 }

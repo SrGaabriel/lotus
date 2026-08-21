@@ -56,6 +56,7 @@ pub fn item_tree(db: &dyn ElabDatabase, file: SourceFile) -> ItemTree<'_> {
                     }
                 }
             }
+            ast::Decl::ImportDecl(_) => {}
         }
     }
 

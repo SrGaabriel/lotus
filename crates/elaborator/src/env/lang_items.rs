@@ -67,6 +67,7 @@ pub fn file_lang_items(db: &dyn ElabDatabase, file: db::SourceFile) -> LanguageI
                 match &decl {
                     ast::Decl::DefDecl(def) => def.attribute().collect(),
                     ast::Decl::InductiveDecl(ind) => ind.attribute().collect(),
+                    ast::Decl::ImportDecl(_) => continue,
                 }
             }
             ItemKind::Constructor => {

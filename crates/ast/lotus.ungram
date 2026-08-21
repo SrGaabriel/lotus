@@ -2,7 +2,7 @@ SourceFile =
   Decl*
 
 Decl =
-  DefDecl | InductiveDecl
+  DefDecl | InductiveDecl | ImportDecl
 
 DefDecl =
   Attribute* 'def' ident:Identifier binders:Binder* return_type:ReturnType ':=' body:Expr

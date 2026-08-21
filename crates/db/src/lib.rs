@@ -19,10 +19,12 @@ pub struct SourceFile {
     pub text: Arc<str>,
 }
 
-#[salsa::input(debug)]
+#[salsa::input(singleton, debug)]
 pub struct SourceRoot {
     #[returns(ref)]
     pub name: String,
+    #[returns(ref)]
+    pub path: PathBuf,
     #[returns(ref)]
     pub files: Vec<SourceFile>,
     pub entrypoint: Option<SourceFile>,

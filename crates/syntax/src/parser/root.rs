@@ -4,7 +4,10 @@ use crate::{
     lexer::TokenKind,
     parser::{
         Parser,
-        expr::{EXPR_FIRST, SEMI_FOLLOW},
+        expr::{
+            EXPR_FIRST,
+            SEMI_FOLLOW,
+        },
         marker::Marker,
     },
 };
@@ -208,12 +211,13 @@ impl Parser<'_> {
         let m = self.start();
         self.parse_path(SHORT_END);
         if self.check_at(TokenKind::LBracket) {
-            self.bump_remap(SyntaxKind::LBracket);
             let g = self.start();
+            self.bump_remap(SyntaxKind::LBracket);
             self.sep_by_until(TokenKind::Comma, TokenKind::RBracket, SHORT_END, |p| {
                 p.parse_import_group();
             });
-            g.complete(self, SyntaxKind::ImportGroup);
+            self.eat(TokenKind::RBracket);
+            g.complete(self, SyntaxKind::ImportList);
         } else if self.at(TokenKind::Identifier) {
             self.parse_identifier(SHORT_END);
         }

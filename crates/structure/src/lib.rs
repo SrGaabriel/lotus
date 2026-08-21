@@ -12,15 +12,10 @@ pub enum Edition {
 }
 
 #[derive(Debug, Clone)]
-pub enum Program {
-    File(PathBuf),
-    Package(Package),
-}
-
-#[derive(Debug, Clone)]
-pub struct Package {
+pub struct Program {
     pub name: String,
     pub root: PathBuf,
+    pub main: Option<PathBuf>,
     pub files: Vec<PathBuf>,
     pub edition: Edition,
 }
@@ -39,51 +34,54 @@ pub enum ProgramError {
 
 impl Program {
     pub fn from_path(path: PathBuf, name: Option<String>) -> Result<Self, ProgramError> {
-        if path.is_file() {
-            require_extension(&path)?;
-            Ok(Self::File(path))
-        } else if path.is_dir() {
-            Ok(Self::Package(Package::from_path(path, name)?))
-        } else {
-            Err(ProgramError::InvalidInput)
-        }
-    }
-}
-
-impl Package {
-    pub fn from_path(root: PathBuf, name: Option<String>) -> Result<Self, ProgramError> {
-        let name = root
-            .file_name()
-            .and_then(|n| n.to_str())
-            .map(str::to_string)
-            .or(name)
+        let name = name
+            .or_else(|| {
+                path.file_stem()
+                    .and_then(|n| n.to_str())
+                    .map(str::to_string)
+            })
             .ok_or(ProgramError::InvalidPackageName)?;
 
-        let mut files = Vec::new();
-        for entry in std::fs::read_dir(&root)? {
-            let path = entry?.path();
-            if has_extension(&path) {
-                files.push(path);
-            }
-        }
+        let (root, main, files) = if path.is_dir() {
+            let mut files = discover_files(&path)?;
+            files.sort();
+            (path, None, files)
+        } else {
+            let root = path.parent().map(Path::to_path_buf).unwrap_or_default();
+            (root, Some(path.clone()), vec![path])
+        };
 
         Ok(Self {
             name,
             root,
+            main,
             files,
             edition: Edition::default(),
         })
     }
 }
 
-fn has_extension(path: &Path) -> bool {
-    path.extension().and_then(|e| e.to_str()) == Some(EXTENSION)
+fn discover_files(path: &Path) -> Result<Vec<PathBuf>, ProgramError> {
+    let entries = std::fs::read_dir(path)?;
+    let mut paths = vec![];
+    for entry_res in entries {
+        let Ok(entry) = entry_res else {
+            tracing::warn!("could not read entry in {:?}", path.file_name());
+            continue;
+        };
+        let path = entry.path();
+        if path.is_dir() {
+            paths.extend(discover_files(&path)?);
+            continue;
+        }
+        if !has_extension(&path) {
+            continue;
+        }
+        paths.push(path);
+    }
+    Ok(paths)
 }
 
-fn require_extension(path: &Path) -> Result<(), ProgramError> {
-    if has_extension(path) {
-        Ok(())
-    } else {
-        Err(ProgramError::InvalidExtension(path.to_path_buf()))
-    }
+fn has_extension(path: &Path) -> bool {
+    path.extension().and_then(|e| e.to_str()) == Some(EXTENSION)
 }
