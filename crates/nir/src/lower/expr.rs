@@ -92,7 +92,8 @@ impl<'db> ExprLoweringCtx<'db> {
             | TermKind::MVar(_)
             | TermKind::Sort(_)
             | TermKind::Pi(..)
-            | TermKind::Sigma(..) => {
+            | TermKind::Sigma(..)
+            | TermKind::Error(_) => {
                 unreachable!("non-runtime term in NIR lowering: {}", term.debug(self.db))
             }
         }

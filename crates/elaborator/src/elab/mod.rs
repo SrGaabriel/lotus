@@ -1,6 +1,7 @@
 pub mod app;
 pub mod ctx;
 pub mod def;
+pub mod diag;
 pub mod expected;
 pub mod inductive;
 pub mod infer;

@@ -8,11 +8,13 @@ use strum::{
     Display,
     EnumString,
 };
+use text_size::TextRange;
 
 use crate::{
     ElabDatabase,
     ElabDb,
     ItemId,
+    env::Namespace,
     ids::ItemKind,
 };
 
@@ -97,6 +99,70 @@ pub fn file_lang_items(db: &dyn ElabDatabase, file: db::SourceFile) -> LanguageI
     }
 
     lang_items
+}
+
+pub type LangItemCandidates<'db> = FxHashMap<LangItem, Vec<ItemId<'db>>>;
+
+#[salsa::tracked(returns(ref))]
+pub fn visible_lang_items(db: &dyn ElabDatabase, file: db::SourceFile) -> LangItemCandidates<'_> {
+    let namespace = db.def_map(file);
+    let mut visible: LangItemCandidates<'_> = FxHashMap::default();
+    collect_namespace(db, namespace, &mut visible);
+    for candidates in visible.values_mut() {
+        candidates.sort_by(|a, b| {
+            (a.file(db).path(db), a.ast_index(db)).cmp(&(b.file(db).path(db), b.ast_index(db)))
+        });
+    }
+    visible
+}
+
+fn collect_namespace<'db>(
+    db: &'db dyn ElabDatabase,
+    namespace: Namespace<'db>,
+    out: &mut LangItemCandidates<'db>,
+) {
+    for &item in namespace.decls(db).values() {
+        let defining = db.lang_items(item.file(db));
+        for (&lang_item, &id) in defining {
+            if id == item {
+                let candidates = out.entry(lang_item).or_default();
+                if !candidates.contains(&item) {
+                    candidates.push(item);
+                }
+            }
+        }
+    }
+    for &child in namespace.children(db).values() {
+        collect_namespace(db, child, out);
+    }
+}
+
+pub fn item_range(db: &dyn ElabDatabase, item: ItemId<'_>) -> Option<TextRange> {
+    let parse = ast::parse_file(db, item.file(db));
+    let source = parse.tree();
+    match item.kind(db) {
+        ItemKind::Def | ItemKind::Inductive => Some(
+            source
+                .decl()
+                .nth(item.ast_index(db) as usize)?
+                .syntax()
+                .text_range(),
+        ),
+        ItemKind::Constructor => {
+            let parent = item.parent(db)?;
+            let ast::Decl::InductiveDecl(ind) = source.decl().nth(parent.ast_index(db) as usize)?
+            else {
+                return None;
+            };
+            Some(
+                ind.inductive_constructors()?
+                    .constructor_decl()
+                    .nth(item.ast_index(db) as usize)?
+                    .syntax()
+                    .text_range(),
+            )
+        }
+    }
 }
 
 fn parse_lang_attr(

@@ -33,7 +33,7 @@ use diagnostics::{
     Diagnostic,
     Label,
     Severity,
-    builder::DiagnosticBuilder,
+    builder::Diag,
 };
 use text_size::TextSize;
 
@@ -263,7 +263,7 @@ impl<'input> Parser<'input> {
         r
     }
 
-    fn finish_diag(&self, mut b: DiagnosticBuilder) -> Diagnostic {
+    fn finish_diag(&self, mut b: Diag) -> Diagnostic {
         for dec in &self.decorations {
             b = match dec {
                 Decoration::SecondaryLabel(l) => b.with_secondary_label(l.clone()),
@@ -285,13 +285,13 @@ impl<'input> Parser<'input> {
         if self.eat(TokenKind::Semicolon) {
             return true;
         }
-        if self.has_newline_before(0) {
+        if self.has_newline_before(0) || self.at_ts(follow) {
             self.expected.clear();
             let prev_end = self.prev_range().map(TextRange::end).unwrap_or_default();
             let span = TextRange::empty(prev_end);
-            let mut builder = Diagnostic::builder(Severity::Error, "missing `;`", self.file, span)
-                .with_help("insert `;` at end of statement".into());
-            builder.primary.message = Some("expected `;` here".into());
+            let builder = Diagnostic::builder(Severity::Error, "missing `;`", self.file, span)
+                .with_help("insert `;` at end of statement".into())
+                .with_primary_message("expected `;` here");
             let diag = self.finish_diag(builder);
             self.diagnostics.push(diag);
             return false;
@@ -318,8 +318,8 @@ impl<'input> Parser<'input> {
         let found = self.current();
         let range = self.current_range();
         let msg = format!("expected {what}, found {found:?}");
-        let mut builder = Diagnostic::builder(Severity::Error, &msg, self.file, range);
-        builder.primary.message = Some(format!("this is not a valid {what}"));
+        let builder = Diagnostic::builder(Severity::Error, &msg, self.file, range)
+            .with_primary_message(format!("this is not a valid {what}"));
         let diag = self.finish_diag(builder);
         self.expected.clear();
 
@@ -339,7 +339,7 @@ impl<'input> Parser<'input> {
         terminator: Option<TokenKind>,
         severity: Severity,
         message: &str,
-        build: impl FnOnce(DiagnosticBuilder) -> DiagnosticBuilder,
+        build: impl FnOnce(Diag) -> Diag,
     ) {
         let start = self.current_range().start();
         let at_sync = self.at(TokenKind::Eof) || self.at_ts(sync);
@@ -399,7 +399,7 @@ impl<'input> Parser<'input> {
         self.diagnostics.push(diagnostic);
     }
 
-    pub fn diag(&self, severity: Severity, message: &str) -> DiagnosticBuilder {
+    pub fn diag(&self, severity: Severity, message: &str) -> Diag {
         Diagnostic::builder(severity, message, self.file, self.current_range())
     }
 

@@ -834,6 +834,7 @@ dependencies = [
  "literals",
  "salsa",
  "text-size",
+ "tracing",
 ]
 
 [[package]]

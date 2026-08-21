@@ -59,9 +59,10 @@ pub enum ItemKind {
 pub struct ItemId<'db> {
     pub file: SourceFile,
     pub name: Symbol<'db>,
-    pub ast_index: u32,
     pub kind: ItemKind,
     pub parent: Option<ItemId<'db>>,
+    #[tracked]
+    pub ast_index: u32,
 }
 
 impl Display for ItemKind {

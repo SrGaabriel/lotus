@@ -30,14 +30,14 @@ pub fn item_tree(db: &dyn ElabDatabase, file: SourceFile) -> ItemTree<'_> {
                 let Some(symbol) = decl_symbol(db, def.ident().as_ref()) else {
                     continue;
                 };
-                items.push(ItemId::new(db, file, symbol, i as u32, ItemKind::Def, None));
+                items.push(ItemId::new(db, file, symbol, ItemKind::Def, None, i as u32));
             }
             ast::Decl::InductiveDecl(ind) => {
                 let Some(symbol) = decl_symbol(db, ind.ident().as_ref()) else {
                     continue;
                 };
                 let inductive_id =
-                    ItemId::new(db, file, symbol, i as u32, ItemKind::Inductive, None);
+                    ItemId::new(db, file, symbol, ItemKind::Inductive, None, i as u32);
                 items.push(inductive_id);
 
                 if let Some(ctors) = ind.inductive_constructors() {
@@ -49,9 +49,9 @@ pub fn item_tree(db: &dyn ElabDatabase, file: SourceFile) -> ItemTree<'_> {
                             db,
                             file,
                             ctor_sym,
-                            ci as u32,
                             ItemKind::Constructor,
                             Some(inductive_id),
+                            ci as u32,
                         ));
                     }
                 }

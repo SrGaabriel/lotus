@@ -60,6 +60,7 @@ impl<'db> ElabCtx<'db> {
             (TermKind::MVar(u), TermKind::MVar(v)) if u == v => Ok(()),
             (TermKind::MVar(u), _) => self.solve_mvar(*u, b),
             (_, TermKind::MVar(v)) => self.solve_mvar(*v, a),
+            (TermKind::Error(_), _) | (_, TermKind::Error(_)) => Ok(()),
             (TermKind::Lit(l1), TermKind::Lit(l2)) if l1 == l2 => Ok(()),
             (TermKind::Const(c1), TermKind::Const(c2)) if c1 == c2 => Ok(()),
             (TermKind::Sort(l1), TermKind::Sort(l2)) if self.eq_level(*l1, *l2) => Ok(()),
@@ -165,6 +166,7 @@ impl<'db> ElabCtx<'db> {
             | TermKind::FVar(_)
             | TermKind::Const(_)
             | TermKind::Sort(_)
+            | TermKind::Error(_)
             | TermKind::Lit(_) => false,
         }
     }
@@ -202,7 +204,7 @@ impl<'db> ElabCtx<'db> {
                     && self.term_fits_scope(*value, allowed, depth)
                     && self.term_fits_scope(*body, allowed, depth + 1)
             }
-            TermKind::Const(_) | TermKind::Sort(_) | TermKind::Lit(_) => true,
+            TermKind::Const(_) | TermKind::Sort(_) | TermKind::Lit(_) | TermKind::Error(_) => true,
         }
     }
 

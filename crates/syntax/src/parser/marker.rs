@@ -34,7 +34,6 @@ impl Marker {
 
 impl Drop for Marker {
     fn drop(&mut self) {
-        // TODO: make this debug_assert on release
         assert!(self.consumed);
     }
 }

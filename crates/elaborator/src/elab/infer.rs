@@ -128,16 +128,14 @@ impl<'db> ElabCtx<'db> {
             }
 
             TermKind::Lit(literal) => self.infer_literal_type(literal),
+
+            TermKind::Error(_) => Ok(term),
         }
     }
 
-    pub fn infer_term_with_diagnostics(
-        &mut self,
-        term: Term<'db>,
-        span: TextRange,
-    ) -> Option<Term<'db>> {
+    pub fn infer_term_with_diagnostics(&mut self, term: Term<'db>, span: TextRange) -> Term<'db> {
         match self.infer_term(term) {
-            Ok(ty) => Some(ty),
+            Ok(ty) => ty,
             Err(InferTermError::TypeMismatch {
                 found,
                 expected,
@@ -145,8 +143,8 @@ impl<'db> ElabCtx<'db> {
                 ..
             }) => {
                 let expected = Expected::new(expected, ExpectedReason::None);
-                self.report_mismatch(span, found, &expected, &cause);
-                None
+                let diag = self.mismatch(span, found, &expected, &cause);
+                self.error(diag).1
             }
             Err(InferTermError::ExpectedFunction { term, found }) => {
                 let message = format!(
@@ -156,10 +154,8 @@ impl<'db> ElabCtx<'db> {
                 );
                 let diagnostic = self
                     .mk_error(span, "expected a function")
-                    .with_primary_message(message)
-                    .build();
-                self.diagnostic(diagnostic);
-                None
+                    .with_primary_message(message);
+                self.error(diagnostic).1
             }
             Err(InferTermError::ExpectedType { term, found }) => {
                 let message = format!(
@@ -169,10 +165,8 @@ impl<'db> ElabCtx<'db> {
                 );
                 let diagnostic = self
                     .mk_error(span, "expected a type")
-                    .with_primary_message(message)
-                    .build();
-                self.diagnostic(diagnostic);
-                None
+                    .with_primary_message(message);
+                self.error(diagnostic).1
             }
             Err(error) => {
                 let note = format!("while inferring `{}`", term.debug(self.db));
@@ -180,10 +174,8 @@ impl<'db> ElabCtx<'db> {
                 let diagnostic = self
                     .mk_error(span, "could not infer the type of this term")
                     .with_primary_message(message)
-                    .with_note(note)
-                    .build();
-                self.diagnostic(diagnostic);
-                None
+                    .with_note(note);
+                self.error(diagnostic).1
             }
         }
     }
@@ -261,9 +253,10 @@ impl<'db> ElabCtx<'db> {
             },
         };
 
-        self.db
-            .lang_items(self.current_decl.file(self.db))
+        let file = self.current_decl.file(self.db);
+        crate::env::lang_items::visible_lang_items(self.db, file)
             .get(&lang_item)
+            .and_then(|candidates| candidates.first())
             .copied()
             .map(|item| Term::constant(self.db, item))
             .ok_or(InferTermError::MissingLangItem(lang_item))

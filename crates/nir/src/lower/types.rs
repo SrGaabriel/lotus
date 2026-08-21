@@ -1,3 +1,7 @@
+use crate::{
+    NirDatabase,
+    types::Type,
+};
 use elaborator::{
     ItemId,
     ItemKind,
@@ -10,11 +14,6 @@ use elaborator::{
         whnf,
         whnf_spine,
     },
-};
-
-use crate::{
-    NirDatabase,
-    types::Type,
 };
 
 pub fn lower_type<'db>(db: &'db dyn NirDatabase, ty: Term<'db>) -> Option<Type<'db>> {

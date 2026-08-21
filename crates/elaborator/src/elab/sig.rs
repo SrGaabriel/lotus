@@ -1,4 +1,7 @@
-use ast::parse_file;
+use ast::{
+    parse_file,
+    traits::AstNode,
+};
 
 use crate::{
     ElabDatabase,
@@ -23,22 +26,26 @@ pub fn signature<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Signature
     let parse = parse_file(db, file);
     let source = parse.tree();
     let node = source.decl().nth(item.ast_index(db) as usize);
+    let decl_range = node
+        .as_ref()
+        .map(|n| n.syntax().text_range())
+        .unwrap_or_default();
     let ty = match item.kind(db) {
         ItemKind::Def => match node {
             Some(ast::Decl::DefDecl(decl)) => match decl.return_type().and_then(|r| r.r#type()) {
                 Some(ret_ty) => cx.with_pi_binders(decl.binders(), |cx| cx.lower_type(ret_ty)),
-                None => cx.error_mvar(),
+                None => cx.error_term(),
             },
-            _ => cx.error_mvar(),
+            _ => cx.error_term(),
         },
         ItemKind::Inductive => match node {
             Some(ast::Decl::InductiveDecl(decl)) => {
                 match decl.return_type().and_then(|r| r.r#type()) {
                     Some(ret_ty) => cx.lower_type(ret_ty),
-                    None => cx.error_mvar(),
+                    None => cx.error_term(),
                 }
             }
-            _ => cx.error_mvar(),
+            _ => cx.error_term(),
         },
         ItemKind::Constructor => {
             let parent = item
@@ -59,7 +66,7 @@ pub fn signature<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Signature
             {
                 cx.with_pi_binders(ctor.binders(), |cx| cx.lower_type(ret_ty))
             } else {
-                cx.error_mvar()
+                cx.error_term()
             }
         }
     };
@@ -71,5 +78,6 @@ pub fn signature<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Signature
     );
     let ty = cx.zonk(ty);
     let ty = cx.abstract_autobound_pi(ty);
+    cx.report_unsolved_mvars(ty, decl_range);
     Signature { ty }
 }

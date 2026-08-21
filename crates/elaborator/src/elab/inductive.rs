@@ -42,7 +42,7 @@ pub fn inductive_data<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Indu
         for binder in decl.binders() {
             let ty = match binder.ty() {
                 Some(t) => cx.lower_type(t),
-                None => cx.error_mvar(),
+                None => cx.poison().1,
             };
             binders.push(ty);
             num_params += 1;

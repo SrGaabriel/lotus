@@ -56,7 +56,8 @@ impl<'db> ElabCtx<'db> {
             | TermKind::FVar(_)
             | TermKind::Const(_)
             | TermKind::Sort(_)
-            | TermKind::Lit(_) => term,
+            | TermKind::Lit(_)
+            | TermKind::Error(_) => term,
         }
     }
 }

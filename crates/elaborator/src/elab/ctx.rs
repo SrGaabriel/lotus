@@ -1,16 +1,11 @@
 use std::str::FromStr;
 
 use ast::traits::AstNode;
-use diagnostics::{
-    Diagnostic,
-    Label,
-    builder::DiagnosticBuilder,
-};
+use diagnostics::Label;
 use literals::{
     Literal,
     NumberLiteral,
 };
-use salsa::Accumulator;
 use text_size::TextRange;
 use tracing::instrument;
 
@@ -24,21 +19,22 @@ use crate::{
         Term,
     },
     elab::{
-        expected::{
-            Expected,
-            ExpectedReason,
-        },
+        diag::Frame,
+        expected::Expected,
         local::{
             LocalBinder,
             LocalCtx,
         },
         meta::MetaCtx,
         subst::abstract_fvar,
-        unify::UnifyError,
     },
     env::{
         Namespace,
-        lang_items::LangItem,
+        lang_items::{
+            LangItem,
+            item_range,
+            visible_lang_items,
+        },
     },
     ids::{
         ItemId,
@@ -48,11 +44,6 @@ use crate::{
     },
     util::naming::is_autobindable,
 };
-
-#[derive(Debug, Clone)]
-pub enum Frame<'db> {
-    DefBody { name: Symbol<'db> },
-}
 
 pub struct ElabCtx<'db> {
     pub db: Db<'db>,
@@ -65,8 +56,6 @@ pub struct ElabCtx<'db> {
     pub namespace: Namespace<'db>,
 
     pub frames: Vec<Frame<'db>>,
-    pub erroneous_mvars: Vec<Unique>,
-
     pub autobound: Vec<FreeBinder<'db>>,
 }
 
@@ -82,32 +71,8 @@ impl<'db> ElabCtx<'db> {
             mctx: MetaCtx::new(),
             namespace,
             frames: Vec::new(),
-            erroneous_mvars: Vec::new(),
             autobound: Vec::new(),
         }
-    }
-
-    pub fn diagnostic(&self, diag: Diagnostic) {
-        diag.accumulate(self.db);
-    }
-
-    pub fn with_frame<R>(&mut self, frame: Frame<'db>, body: impl FnOnce(&mut Self) -> R) -> R {
-        self.frames.push(frame);
-        let result = body(self);
-        self.frames.pop();
-        result
-    }
-
-    fn frame_notes(&self) -> Vec<String> {
-        self.frames
-            .iter()
-            .rev()
-            .map(|frame| match frame {
-                Frame::DefBody { name } => {
-                    format!("while checking the body of `{}`", name.text(self.db))
-                }
-            })
-            .collect()
     }
 
     pub fn fresh_fvar(
@@ -141,28 +106,28 @@ impl<'db> ElabCtx<'db> {
             ast::Type::AppType(app) => {
                 let func = match app.func() {
                     Some(f) => self.lower_type(f),
-                    None => self.error_mvar(),
+                    None => self.poison().0,
                 };
                 let arg = match app.arg() {
                     Some(a) => self.lower_type(a),
-                    None => self.error_mvar(),
+                    None => self.poison().0,
                 };
                 Term::app(self.db, func, arg)
             }
             ast::Type::ArrowType(arr) => {
                 let dom = match arr.dom() {
                     Some(t) => self.lower_type(t),
-                    None => self.error_mvar(),
+                    None => self.poison().0,
                 };
                 let cod = match arr.cod() {
                     Some(t) => self.lower_type(t),
-                    None => self.error_mvar(),
+                    None => self.poison().0,
                 };
                 Term::pi(self.db, BinderInfo::Explicit, dom, cod)
             }
             ast::Type::ParenType(p) => match p.r#type() {
                 Some(inner) => self.lower_type(inner),
-                None => self.error_mvar(),
+                None => self.poison().0,
             },
         }
     }
@@ -173,28 +138,18 @@ impl<'db> ElabCtx<'db> {
         Term::mvar(self.db, u)
     }
 
-    pub fn error_mvar(&mut self) -> Term<'db> {
-        let u = self.gen_.fresh();
-        self.erroneous_mvars.push(u);
-        let ty = self.placeholder_ty();
-        self.mctx.register_meta(u, ty, self.lctx.clone());
-        Term::mvar(self.db, u)
-    }
-
     pub fn infer(&mut self, expr: ast::Expr) -> (Term<'db>, Term<'db>) {
         match expr {
             ast::Expr::Literal(lit) => {
                 let span = lit.syntax().text_range();
                 let term = self.lower_literal(lit.clone());
-                let ty = self
-                    .infer_term_with_diagnostics(term, span)
-                    .unwrap_or_else(|| self.error_mvar());
+                let ty = self.infer_term_with_diagnostics(term, span);
                 (term, ty)
             }
             ast::Expr::Name(name) => self.resolve_name(&name),
             ast::Expr::ParenExpr(expr) => match expr.expr() {
                 Some(inner) => self.infer(inner),
-                None => (self.error_mvar(), self.error_mvar()),
+                None => (self.error_term(), self.error_term()),
             },
             ast::Expr::BraceBlock(block) => self.infer_block(&block),
             ast::Expr::AppExpr(app) => self.infer_app(&app),
@@ -209,10 +164,11 @@ impl<'db> ElabCtx<'db> {
             let (term, ty) = self.infer(expr);
             let Some((term, ty)) = self.insert_implicits_for_expected(term, ty, expected.ty, range)
             else {
-                return self.error_mvar();
+                return self.error_term();
             };
             if let Err(err) = self.unify(ty, expected.ty) {
-                self.report_mismatch(range, ty, expected, &err);
+                let diag = self.mismatch(range, ty, expected, &err);
+                self.emit(diag);
             }
             term
         }
@@ -252,7 +208,7 @@ impl<'db> ElabCtx<'db> {
                 let (value, ty) = if let Some(expr) = let_stmt.expr() {
                     self.infer(expr)
                 } else {
-                    (self.error_mvar(), self.error_mvar())
+                    (self.error_term(), self.error_term())
                 };
                 let saved_lctx = self.lctx.clone();
                 let fvar = self.fresh_fvar(name, ty, BinderInfo::Explicit, origin, None);
@@ -272,25 +228,22 @@ impl<'db> ElabCtx<'db> {
                 let (value, ty) = if let Some(expr) = mutation.expr() {
                     self.infer(expr)
                 } else {
-                    (self.error_mvar(), self.error_mvar())
+                    (self.error_term(), self.error_term())
                 };
                 let saved_lctx = self.lctx.clone();
                 if name.is_none() {
-                    return (self.error_mvar(), self.error_mvar());
+                    return (self.error_term(), self.error_term());
                 }
 
                 let Some(latest) = self.lctx.find_by_name(name.unwrap()) else {
-                    let diag = self
-                        .mk_error(
-                            origin,
-                            &format!(
-                                "cannot mutate undefined variable `{}`",
-                                name.unwrap().text(self.db)
-                            ),
-                        )
-                        .build();
-                    self.diagnostic(diag);
-                    return (self.error_mvar(), self.error_mvar());
+                    let diag = self.mk_error(
+                        origin,
+                        &format!(
+                            "cannot mutate undefined variable `{}`",
+                            name.unwrap().text(self.db)
+                        ),
+                    );
+                    return self.error(diag);
                 };
                 let fvar =
                     self.fresh_fvar(name, ty, BinderInfo::Explicit, origin, Some(latest.unique));
@@ -326,7 +279,8 @@ impl<'db> ElabCtx<'db> {
         if let Some(expected) = expected
             && let Err(err) = self.unify(unit_ty, expected.ty)
         {
-            self.report_mismatch(range, unit_ty, expected, &err);
+            let diag = self.mismatch(range, unit_ty, expected, &err);
+            self.emit(diag);
         }
         (unit_const, unit_ty)
     }
@@ -335,20 +289,19 @@ impl<'db> ElabCtx<'db> {
         match lit {
             ast::Literal::NumberLit(num) => {
                 let Some(text) = num.text() else {
-                    return self.error_mvar();
+                    return self.poison().0;
                 };
                 match NumberLiteral::from_str(text) {
                     Ok(number) => Term::lit(self.db, Literal::Numeric(number)),
                     Err(e) => {
                         let diagnostic = self.mk_error(num.syntax().text_range(), &e.to_string());
-                        self.diagnostic(diagnostic.build());
-                        self.error_mvar()
+                        self.error(diagnostic).0
                     }
                 }
             }
             ast::Literal::StringLit(s) => {
                 let Some(value) = s.unquoted().map(std::string::ToString::to_string) else {
-                    return self.error_mvar();
+                    return self.poison().0;
                 };
                 Term::lit(self.db, Literal::Text(value))
             }
@@ -362,7 +315,7 @@ impl<'db> ElabCtx<'db> {
         {
             self.with_pi_binders(std::iter::once(b), |cx| cx.lower_type(cod))
         } else {
-            self.error_mvar()
+            self.poison().1
         }
     }
 
@@ -429,84 +382,6 @@ impl<'db> ElabCtx<'db> {
         Term::fvar(self.db, fvar)
     }
 
-    fn unresolved_name(&mut self, name: &ast::Name) -> (Term<'db>, Term<'db>) {
-        let path_txt: String = name
-            .path()
-            .map(|seg| {
-                let text = seg
-                    .identifier()
-                    .and_then(|s| s.text().map(str::to_owned))
-                    .unwrap_or_else(|| "<unknown>".to_owned());
-                text + "::"
-            })
-            .collect();
-        let member_txt = name
-            .member()
-            .as_ref()
-            .and_then(|m| m.text())
-            .unwrap_or("<unknown>")
-            .to_owned();
-        let diag = self
-            .mk_error(
-                name.syntax().text_range(),
-                &format!("unresolved name '{path_txt}{member_txt}'"),
-            )
-            .build();
-        self.diagnostic(diag);
-        (self.error_mvar(), self.error_mvar())
-    }
-
-    pub fn report_mismatch(
-        &mut self,
-        range: TextRange,
-        found: Term<'db>,
-        expected: &Expected<'db>,
-        err: &UnifyError<'db>,
-    ) {
-        let expected_txt = expected.ty.debug(self.db).to_string();
-        let found_txt = found.debug(self.db).to_string();
-
-        let mut builder = self
-            .mk_error(
-                range,
-                &format!("type mismatch: expected `{expected_txt}`, found `{found_txt}`"),
-            )
-            .with_primary_message(format!("this is `{found_txt}`, expected `{expected_txt}`"));
-
-        match expected.reason {
-            ExpectedReason::ReturnType { annotation } => {
-                let label = self.mk_label(
-                    annotation,
-                    &format!("expected `{expected_txt}` because of this return type"),
-                );
-                builder = builder.with_secondary_label(label);
-            }
-            ExpectedReason::Annotation { range: ann } => {
-                let label = self.mk_label(
-                    ann,
-                    &format!("expected `{expected_txt}` because of this annotation"),
-                );
-                builder = builder.with_secondary_label(label);
-            }
-            ExpectedReason::None => {}
-        }
-
-        let (root_found, root_expected) = err.root();
-        if root_found != found || root_expected != expected.ty {
-            builder = builder.with_note(format!(
-                "the conflict is between `{}` and `{}`",
-                root_found.debug(self.db),
-                root_expected.debug(self.db)
-            ));
-        }
-
-        for note in self.frame_notes() {
-            builder = builder.with_note(note);
-        }
-
-        self.diagnostic(builder.build());
-    }
-
     pub fn elaborate_binders<I>(&mut self, binders: I) -> Vec<FreeBinder<'db>>
     where
         I: Iterator<Item = ast::Binder>,
@@ -528,7 +403,7 @@ impl<'db> ElabCtx<'db> {
         let ty = if let Some(ty) = binder.ty() {
             self.lower_type(ty)
         } else {
-            self.error_mvar()
+            self.poison().1
         };
 
         let unique = self.fresh_fvar(binder_name, ty, info, binder.syntax().text_range(), None);
@@ -606,29 +481,33 @@ impl<'db> ElabCtx<'db> {
         term
     }
 
-    pub fn mk_error(&mut self, range: TextRange, message: &str) -> DiagnosticBuilder {
-        let file = self.current_decl.file(self.db);
-        Diagnostic::error(message, file, range)
-    }
-
-    pub fn mk_label(&mut self, range: TextRange, message: &str) -> Label {
-        let file = self.current_decl.file(self.db);
-        Label {
-            file,
-            range,
-            message: Some(message.to_string()),
-        }
-    }
-
     pub fn lang_item(&mut self, lang_item: &LangItem, range: TextRange) -> Term<'db> {
         let file = self.current_decl.file(self.db);
-        let Some(item_id) = self.db.lang_items(file).get(lang_item).copied() else {
-            let diag = self
+        let candidates = visible_lang_items(self.db, file)
+            .get(lang_item)
+            .map_or(&[][..], Vec::as_slice);
+        let Some(&item_id) = candidates.first() else {
+            let builder = self
                 .mk_error(range, &format!("missing language item: {lang_item}"))
-                .build();
-            self.diagnostic(diag);
-            return self.error_mvar();
+                .with_help(format!(
+                    "define or import an item annotated with `@[lang \"{lang_item}\"]`"
+                ));
+            return self.error(builder).0;
         };
+        if candidates.len() > 1 {
+            let mut builder =
+                self.mk_error(range, &format!("ambiguous language item `{lang_item}`"));
+            for &candidate in candidates {
+                if let Some(defined_at) = item_range(self.db, candidate) {
+                    builder = builder.with_secondary_label(Label {
+                        file: candidate.file(self.db),
+                        range: defined_at,
+                        message: Some("candidate defined here".to_string()),
+                    });
+                }
+            }
+            return self.error(builder).0;
+        }
         Term::constant(self.db, item_id)
     }
 }

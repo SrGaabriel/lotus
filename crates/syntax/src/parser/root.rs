@@ -4,10 +4,7 @@ use crate::{
     lexer::TokenKind,
     parser::{
         Parser,
-        expr::{
-            EXPR_FIRST,
-            SEMI_FOLLOW,
-        },
+        expr::EXPR_FIRST,
         marker::Marker,
     },
 };
@@ -21,6 +18,7 @@ pub const DECL_FIRST: TokenSet = TokenSet::new(&[
 ]);
 pub const SHORT_END: TokenSet =
     DECL_FIRST.union(TokenSet::new(&[TokenKind::Semicolon, TokenKind::RBracket]));
+pub const DECL_FOLLOW: TokenSet = DECL_FIRST.union(TokenSet::new(&[TokenKind::Eof]));
 
 impl Parser<'_> {
     pub fn at_decl_start(&self) -> bool {
@@ -203,7 +201,7 @@ impl Parser<'_> {
     pub fn parse_import_decl(&mut self, m: Marker) {
         self.bump_remap(SyntaxKind::ImportKw);
         self.parse_import_group();
-        self.expect_semicolon(SEMI_FOLLOW, SHORT_END);
+        self.expect_semicolon(DECL_FOLLOW, SHORT_END);
         m.complete(self, SyntaxKind::ImportDecl);
     }
 

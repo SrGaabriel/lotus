@@ -22,12 +22,14 @@ pub fn abstract_fvar_at<'db>(
 ) -> Term<'db> {
     match term.kind(db) {
         TermKind::BVar(i) if *i >= index => Term::bvar(db, i + 1),
-        TermKind::BVar(i) => Term::bvar(db, *i),
         TermKind::FVar(u) if *u == fvar => Term::bvar(db, index),
-        TermKind::FVar(u) => Term::fvar(db, *u),
-        TermKind::MVar(u) => Term::mvar(db, *u),
-        TermKind::Const(d) => Term::constant(db, *d),
-        TermKind::Sort(l) => Term::sort(db, *l),
+        TermKind::BVar(_)
+        | TermKind::MVar(_)
+        | TermKind::FVar(_)
+        | TermKind::Const(_)
+        | TermKind::Error(_)
+        | TermKind::Lit(_)
+        | TermKind::Sort(_) => *term,
         TermKind::App(f, x) => {
             let f = abstract_fvar_at(db, f, fvar, index);
             let x = abstract_fvar_at(db, x, fvar, index);
@@ -54,7 +56,6 @@ pub fn abstract_fvar_at<'db>(
             let body = abstract_fvar_at(db, body, fvar, index + 1);
             Term::let_(db, ty, value, body)
         }
-        TermKind::Lit(lit) => Term::lit(db, lit.clone()),
     }
 }
 
@@ -81,6 +82,7 @@ pub fn instantiate_at<'db>(
         | TermKind::MVar(_)
         | TermKind::Const(_)
         | TermKind::Lit(_)
+        | TermKind::Error(_)
         | TermKind::Sort(_) => *term,
 
         TermKind::App(f, x) => {
@@ -159,6 +161,7 @@ pub fn shift_at<'db>(
         | TermKind::BVar(_)
         | TermKind::MVar(_)
         | TermKind::Const(_)
+        | TermKind::Error(_)
         | TermKind::Sort(_) => *term,
     }
 }

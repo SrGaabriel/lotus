@@ -1,3 +1,6 @@
 inductive Nat : Type :=
       Zero : Nat
     | Succ : Nat -> Nat;
+
+@[lang "type.int32"]
+inductive Int32 : Type := MkInt32 (val : Int) : Int32;

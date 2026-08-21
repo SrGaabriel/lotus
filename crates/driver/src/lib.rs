@@ -16,7 +16,6 @@ use elaborator::{
     ElabDatabase,
     ElabDb,
     ElaboratedFile,
-    ItemKind,
 };
 use nir::{
     NirDatabase,
@@ -121,65 +120,7 @@ impl Compiler {
     }
 
     pub fn diagnostics(&self, file: SourceFile) -> Vec<Diagnostic> {
-        let mut out = Vec::new();
-        out.extend(
-            parse_file::accumulated::<Diagnostic>(&self.db, file)
-                .into_iter()
-                .cloned(),
-        );
-        let db: &dyn ElabDatabase = &self.db;
-        let _ = db.def_map(file);
-        out.extend(
-            elaborator::env::def_map::def_map::accumulated::<Diagnostic>(&self.db, file)
-                .into_iter()
-                .cloned(),
-        );
-        let _ = db.lang_items(file);
-        out.extend(
-            elaborator::env::lang_items::file_lang_items::accumulated::<Diagnostic>(&self.db, file)
-                .into_iter()
-                .cloned(),
-        );
-
-        let items: Vec<_> = db
-            .item_tree(file)
-            .items(db)
-            .iter()
-            .copied()
-            .filter(|item| item.parent(db).is_none())
-            .collect();
-        for item in items {
-            let _ = db.signature(item);
-            out.extend(
-                elaborator::elab::sig::signature::accumulated::<Diagnostic>(&self.db, item)
-                    .into_iter()
-                    .cloned(),
-            );
-
-            match item.kind(db) {
-                ItemKind::Def => {
-                    let _ = db.def_body(item);
-                    out.extend(
-                        elaborator::elab::def::def_body::accumulated::<Diagnostic>(&self.db, item)
-                            .into_iter()
-                            .cloned(),
-                    );
-                }
-                ItemKind::Inductive => {
-                    let _ = db.inductive_data(item);
-                    out.extend(
-                        elaborator::elab::inductive::inductive_data::accumulated::<Diagnostic>(
-                            &self.db, item,
-                        )
-                        .into_iter()
-                        .cloned(),
-                    );
-                }
-                ItemKind::Constructor => {}
-            }
-        }
-        out.dedup();
-        out
+        elaborator::file_diagnostics(&self.db, file)
     }
 
     pub fn parsing_diagnostics(&self, file: SourceFile) -> Vec<Diagnostic> {

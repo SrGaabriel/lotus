@@ -1,3 +1,5 @@
-import prim::Nat;
+import prim::[Nat, Int32];
 
 def natural : Type := Nat
+
+def error (a : Natural) : a := a

@@ -6,10 +6,8 @@ use ast::{
 use crate::{
     ElabDatabase,
     elab::{
-        ctx::{
-            ElabCtx,
-            Frame,
-        },
+        ctx::ElabCtx,
+        diag::Frame,
         expected::{
             Expected,
             ExpectedReason,
@@ -27,33 +25,38 @@ pub fn def_body<'db>(db: &'db dyn ElabDatabase, item: ItemId<'db>) -> Option<Def
     let parse = parse_file(db, file);
     let source = parse.tree();
 
-    let value = match source.decl().nth(item.ast_index(db) as usize) {
-        Some(ast::Decl::DefDecl(decl)) => match decl.body() {
-            Some(expr) => {
-                let return_type_tok = decl.return_type().and_then(|r| r.r#type());
+    let (value, decl_range) = match source.decl().nth(item.ast_index(db) as usize) {
+        Some(ast::Decl::DefDecl(decl)) => {
+            let decl_range = decl.syntax().text_range();
+            let value = match decl.body() {
+                Some(expr) => {
+                    let return_type_tok = decl.return_type().and_then(|r| r.r#type());
 
-                let annotation = return_type_tok.as_ref().map_or_else(
-                    || expr.syntax().text_range(),
-                    |ret| ret.syntax().text_range(),
-                );
+                    let annotation = return_type_tok.as_ref().map_or_else(
+                        || expr.syntax().text_range(),
+                        |ret| ret.syntax().text_range(),
+                    );
 
-                let name = item.name(db);
-                cx.with_binders(decl.binders(), |cx| {
-                    let body_type = match return_type_tok {
-                        Some(t) => cx.lower_type(t),
-                        None => cx.error_mvar(),
-                    };
-                    let expected =
-                        Expected::new(body_type, ExpectedReason::ReturnType { annotation });
-                    cx.with_frame(Frame::DefBody { name }, |cx| cx.check(expr, &expected))
-                })
-            }
-            None => cx.placeholder_ty(),
-        },
+                    let name = item.name(db);
+                    cx.with_binders(decl.binders(), |cx| {
+                        let body_type = match return_type_tok {
+                            Some(t) => cx.lower_type(t),
+                            None => cx.poison().1,
+                        };
+                        let expected =
+                            Expected::new(body_type, ExpectedReason::ReturnType { annotation });
+                        cx.with_frame(Frame::DefBody { name }, |cx| cx.check(expr, &expected))
+                    })
+                }
+                None => cx.placeholder_ty(),
+            };
+            (value, decl_range)
+        }
         _ => return None,
     };
 
     let value = cx.zonk(value);
     let value = cx.abstract_autobound_lam(value);
+    cx.report_unsolved_mvars(value, decl_range);
     Some(DefBody { value })
 }

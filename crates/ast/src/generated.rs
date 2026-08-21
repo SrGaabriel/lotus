@@ -99,6 +99,28 @@ impl InductiveDecl {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
+pub struct ImportDecl(ResolvedNode);
+impl AstNode for ImportDecl {
+    fn can_cast(k: SyntaxKind) -> bool {
+        k == SyntaxKind::ImportDecl
+    }
+    fn cast(node: ResolvedNode) -> Option<Self> {
+        Self::can_cast(node.kind()).then_some(Self(node))
+    }
+    fn syntax(&self) -> &ResolvedNode {
+        &self.0
+    }
+}
+impl ImportDecl {
+    pub fn import_kw(&self) -> Option<ResolvedToken> {
+        token(&self.0, SyntaxKind::ImportKw)
+    }
+    pub fn import_group(&self) -> Option<ImportGroup> {
+        child(&self.0)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct Attribute(ResolvedNode);
 impl AstNode for Attribute {
     fn can_cast(k: SyntaxKind) -> bool {
@@ -219,28 +241,6 @@ impl ConstructorDecl {
         children(&self.0)
     }
     pub fn return_type(&self) -> Option<ReturnType> {
-        child(&self.0)
-    }
-}
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[repr(transparent)]
-pub struct ImportDecl(ResolvedNode);
-impl AstNode for ImportDecl {
-    fn can_cast(k: SyntaxKind) -> bool {
-        k == SyntaxKind::ImportDecl
-    }
-    fn cast(node: ResolvedNode) -> Option<Self> {
-        Self::can_cast(node.kind()).then_some(Self(node))
-    }
-    fn syntax(&self) -> &ResolvedNode {
-        &self.0
-    }
-}
-impl ImportDecl {
-    pub fn import_kw(&self) -> Option<ResolvedToken> {
-        token(&self.0, SyntaxKind::ImportKw)
-    }
-    pub fn import_group(&self) -> Option<ImportGroup> {
         child(&self.0)
     }
 }

@@ -1,4 +1,5 @@
 use ast::traits::AstNode;
+use diagnostics::builder::Diag;
 use text_size::TextRange;
 
 use crate::{
@@ -33,13 +34,13 @@ impl<'db> ElabCtx<'db> {
 
         let (head_term, head_ty) = match head {
             Some(head) => self.infer(head),
-            None => (self.error_mvar(), self.error_mvar()),
+            None => self.poison(),
         };
 
         let mut state = AppState::new(head_term, head_ty);
         for arg in args {
-            if !state.consume_arg(self, arg) {
-                return (self.error_mvar(), self.error_mvar());
+            if let Err(builder) = state.consume_arg(self, arg) {
+                return self.error(builder);
             }
         }
         state.finish()
@@ -53,8 +54,13 @@ impl<'db> ElabCtx<'db> {
         range: TextRange,
     ) -> Option<(Term<'db>, Term<'db>)> {
         let mut state = AppState::new(term, ty);
-        state.insert_implicits_for_expected(self, expected_ty, range)?;
-        Some(state.finish())
+        match state.insert_implicits_for_expected(self, expected_ty, range) {
+            Ok(()) => Some(state.finish()),
+            Err(builder) => {
+                self.error(builder);
+                None
+            }
+        }
     }
 }
 
@@ -63,15 +69,11 @@ impl<'db> AppState<'db> {
         Self { term, ty }
     }
 
-    fn consume_arg(&mut self, cx: &mut ElabCtx<'db>, arg: SurfaceArg) -> bool {
-        if self.insert_implicit_args(cx, arg.range).is_none() {
-            return false;
-        }
+    fn consume_arg(&mut self, cx: &mut ElabCtx<'db>, arg: SurfaceArg) -> Result<(), Diag> {
+        self.insert_implicit_args(cx, arg.range)?;
 
         let func_ty = cx.whnf(self.ty);
-        let Some((dom, cod)) = ensure_explicit_function_type(cx, func_ty, arg.range) else {
-            return false;
-        };
+        let (dom, cod) = ensure_explicit_function_type(cx, func_ty, arg.range)?;
 
         let arg_term = match arg.expr {
             Some(expr) => {
@@ -81,12 +83,12 @@ impl<'db> AppState<'db> {
                 };
                 cx.check(expr, &expected)
             }
-            None => cx.error_mvar(),
+            None => cx.poison().0,
         };
 
         self.term = Term::app(cx.db, self.term, arg_term);
         self.ty = instantiate(cx.db, &cod, arg_term);
-        true
+        Ok(())
     }
 
     fn finish(self) -> (Term<'db>, Term<'db>) {
@@ -98,43 +100,50 @@ impl<'db> AppState<'db> {
         cx: &mut ElabCtx<'db>,
         expected_ty: Term<'db>,
         range: TextRange,
-    ) -> Option<()> {
+    ) -> Result<(), Diag> {
         loop {
             self.ty = cx.whnf(self.ty);
             if expected_keeps_implicit(cx, self.ty, expected_ty) {
-                return Some(());
+                return Ok(());
             }
 
             let inserted = self.insert_one_implicit(cx, range)?;
             if !inserted {
-                return Some(());
+                return Ok(());
             }
         }
     }
 
-    fn insert_implicit_args(&mut self, cx: &mut ElabCtx<'db>, range: TextRange) -> Option<()> {
+    fn insert_implicit_args(
+        &mut self,
+        cx: &mut ElabCtx<'db>,
+        range: TextRange,
+    ) -> Result<(), Diag> {
         loop {
             self.ty = cx.whnf(self.ty);
             let inserted = self.insert_one_implicit(cx, range)?;
             if !inserted {
-                return Some(());
+                return Ok(());
             }
         }
     }
 
-    fn insert_one_implicit(&mut self, cx: &mut ElabCtx<'db>, range: TextRange) -> Option<bool> {
+    fn insert_one_implicit(
+        &mut self,
+        cx: &mut ElabCtx<'db>,
+        range: TextRange,
+    ) -> Result<bool, Diag> {
         match self.ty.kind(cx.db) {
             TermKind::Pi(info, dom, cod) if is_ordinary_implicit(*info) => {
                 let arg = cx.fresh_mvar(*dom);
                 self.term = Term::app(cx.db, self.term, arg);
                 self.ty = instantiate(cx.db, cod, arg);
-                Some(true)
+                Ok(true)
             }
             TermKind::Pi(BinderInfo::InstanceImplicit, _, _) => {
-                cx.report_unsupported_instance_implicit(range);
-                None
+                Err(cx.unsupported_instance_implicit(range))
             }
-            _ => Some(false),
+            _ => Ok(false),
         }
     }
 }
@@ -143,20 +152,17 @@ fn ensure_explicit_function_type<'db>(
     cx: &mut ElabCtx<'db>,
     func_ty: Term<'db>,
     range: TextRange,
-) -> Option<(Term<'db>, Term<'db>)> {
+) -> Result<(Term<'db>, Term<'db>), Diag> {
     match func_ty.kind(cx.db) {
-        TermKind::Pi(BinderInfo::Explicit, param_ty, body_ty) => Some((*param_ty, *body_ty)),
+        TermKind::Pi(BinderInfo::Explicit, param_ty, body_ty) => Ok((*param_ty, *body_ty)),
         TermKind::Pi(info, _, _) if is_ordinary_implicit(*info) => {
             unreachable!("ordinary implicit binders should be inserted before explicit arguments")
         }
         TermKind::Pi(BinderInfo::InstanceImplicit, _, _) => {
-            cx.report_unsupported_instance_implicit(range);
-            None
+            Err(cx.unsupported_instance_implicit(range))
         }
-        _ => {
-            cx.report_expected_function(range, func_ty);
-            None
-        }
+        TermKind::Error(_) => Ok((func_ty, func_ty)),
+        _ => Err(cx.expected_function(range, func_ty)),
     }
 }
 
@@ -179,29 +185,6 @@ fn expected_keeps_implicit<'db>(
 
 fn is_ordinary_implicit(info: BinderInfo) -> bool {
     matches!(info, BinderInfo::Implicit | BinderInfo::StrictImplicit)
-}
-
-impl<'db> ElabCtx<'db> {
-    fn report_expected_function(&mut self, range: TextRange, found: Term<'db>) {
-        let found_txt = found.debug(self.db).to_string();
-        let diag = self
-            .mk_error(range, &format!("expected a function, found `{found_txt}`"))
-            .with_primary_message(format!(
-                "this has type `{found_txt}`, which is not a function"
-            ))
-            .build();
-        self.diagnostic(diag);
-    }
-
-    fn report_unsupported_instance_implicit(&mut self, range: TextRange) {
-        let diag = self
-            .mk_error(range, "instance implicit arguments are not supported yet")
-            .with_primary_message(
-                "this call needs instance search, but instance resolution is not implemented",
-            )
-            .build();
-        self.diagnostic(diag);
-    }
 }
 
 fn flatten_app(expr: &ast::AppExpr) -> (Option<ast::Expr>, Vec<SurfaceArg>) {

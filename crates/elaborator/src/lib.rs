@@ -1,4 +1,5 @@
 pub mod core;
+pub mod diag;
 pub mod elab;
 pub mod env;
 pub mod ids;
@@ -10,6 +11,7 @@ use ast::AstDatabase;
 use db::SourceFile;
 
 pub use crate::{
+    diag::file_diagnostics,
     elab::{
         Signature,
         elaborate_decl,

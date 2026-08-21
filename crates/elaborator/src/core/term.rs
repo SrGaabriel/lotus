@@ -2,6 +2,7 @@ use literals::Literal;
 
 use crate::{
     Db,
+    core::error::ErrorToken,
     ids::{
         ItemId,
         Symbol,
@@ -13,6 +14,7 @@ use crate::{
 pub struct Term<'db> {
     #[returns(ref)]
     pub kind: TermKind<'db>,
+    pub has_error: bool,
 }
 
 #[salsa::interned(debug)]
@@ -42,6 +44,7 @@ pub enum TermKind<'db> {
     Sigma(BinderInfo, Term<'db>, Term<'db>),
     Let(Term<'db>, Term<'db>, Term<'db>),
     Lit(Literal),
+    Error(ErrorToken),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, salsa::Update)]
@@ -56,51 +59,60 @@ pub enum LevelKind<'db> {
 
 impl<'db> Term<'db> {
     pub fn bvar(db: Db<'db>, i: usize) -> Self {
-        Term::new(db, TermKind::BVar(i))
+        Term::new(db, TermKind::BVar(i), false)
     }
 
     pub fn fvar(db: Db<'db>, u: Unique) -> Self {
-        Term::new(db, TermKind::FVar(u))
+        Term::new(db, TermKind::FVar(u), false)
     }
 
     pub fn mvar(db: Db<'db>, u: Unique) -> Self {
-        Term::new(db, TermKind::MVar(u))
+        Term::new(db, TermKind::MVar(u), false)
     }
 
     pub fn app(db: Db<'db>, f: Term<'db>, x: Term<'db>) -> Self {
-        Term::new(db, TermKind::App(f, x))
+        let has_error = f.has_error(db) || x.has_error(db);
+        Term::new(db, TermKind::App(f, x), has_error)
     }
 
     pub fn sort(db: Db<'db>, level: Level<'db>) -> Self {
-        Term::new(db, TermKind::Sort(level))
+        Term::new(db, TermKind::Sort(level), false)
     }
 
     pub fn constant(db: Db<'db>, item: ItemId<'db>) -> Self {
-        Term::new(db, TermKind::Const(item))
+        Term::new(db, TermKind::Const(item), false)
     }
 
     pub fn lam(db: Db<'db>, info: BinderInfo, ty: Term<'db>, body: Term<'db>) -> Self {
-        Term::new(db, TermKind::Lam(info, ty, body))
+        let has_error = ty.has_error(db) || body.has_error(db);
+        Term::new(db, TermKind::Lam(info, ty, body), has_error)
     }
 
     pub fn pi(db: Db<'db>, info: BinderInfo, ty: Term<'db>, body: Term<'db>) -> Self {
-        Term::new(db, TermKind::Pi(info, ty, body))
+        let has_error = ty.has_error(db) || body.has_error(db);
+        Term::new(db, TermKind::Pi(info, ty, body), has_error)
     }
 
     pub fn sigma(db: Db<'db>, info: BinderInfo, ty: Term<'db>, body: Term<'db>) -> Self {
-        Term::new(db, TermKind::Sigma(info, ty, body))
+        let has_error = ty.has_error(db) || body.has_error(db);
+        Term::new(db, TermKind::Sigma(info, ty, body), has_error)
     }
 
     pub fn let_(db: Db<'db>, ty: Term<'db>, value: Term<'db>, body: Term<'db>) -> Self {
-        Term::new(db, TermKind::Let(ty, value, body))
+        let has_error = ty.has_error(db) || value.has_error(db) || body.has_error(db);
+        Term::new(db, TermKind::Let(ty, value, body), has_error)
     }
 
     pub fn lit(db: Db<'db>, lit: Literal) -> Self {
-        Term::new(db, TermKind::Lit(lit))
+        Term::new(db, TermKind::Lit(lit), false)
     }
 
     pub fn type0(db: Db<'db>) -> Self {
         Term::sort(db, Level::one(db))
+    }
+
+    pub fn error(db: Db<'db>, token: ErrorToken) -> Self {
+        Term::new(db, TermKind::Error(token), true)
     }
 
     pub fn mk_app(db: Db<'db>, head: Term<'db>, args: impl IntoIterator<Item = Term<'db>>) -> Self {
@@ -218,6 +230,7 @@ impl std::fmt::Display for TermDisplay<'_> {
             TermKind::Lit(lit) => write!(f, "{lit:?}"),
             TermKind::FVar(u) => write!(f, "?f{}", u.0),
             TermKind::MVar(u) => write!(f, "?m{}", u.0),
+            TermKind::Error(_) => write!(f, "❌"),
         }
     }
 }
