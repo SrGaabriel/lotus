@@ -1,4 +1,3 @@
-use ast::traits::AstNode;
 use diagnostics::{
     Diagnostic,
     Label,
@@ -21,7 +20,9 @@ use crate::{
         },
         unify::UnifyError,
     },
+    env::namespace::best_match,
     ids::{
+        Qualified,
         Symbol,
         Unique,
     },
@@ -33,28 +34,31 @@ pub enum Frame<'db> {
 }
 
 impl<'db> ElabCtx<'db> {
-    pub fn unresolved_name(&mut self, name: &ast::Name) -> (Term<'db>, Term<'db>) {
-        let path_txt: String = name
-            .path()
-            .map(|seg| {
-                let text = seg
-                    .identifier()
-                    .and_then(|s| s.text().map(str::to_owned))
-                    .unwrap_or_else(|| "<unknown>".to_owned());
-                text + "::"
-            })
-            .collect();
-        let member_txt = name
-            .member()
-            .as_ref()
-            .and_then(|m| m.text())
-            .unwrap_or("<unknown>")
-            .to_owned();
-        let diag = self.mk_error(
-            name.syntax().text_range(),
-            &format!("unresolved name '{path_txt}{member_txt}'"),
+    pub fn unresolved_name(
+        &mut self,
+        qualified: &Qualified<'db>,
+        range: TextRange,
+    ) -> (Term<'db>, Term<'db>) {
+        let mut diag = self.mk_error(
+            range,
+            &format!("unresolved name '{}'", qualified.to_string(self.db)),
         );
+
+        if let Some(suggestion) = self.suggest(qualified) {
+            diag = diag.with_help(format!("did you mean `{}`", suggestion.to_string(self.db)));
+        }
+
         self.error(diag)
+    }
+
+    fn suggest(&self, qualified: &Qualified<'db>) -> Option<Qualified<'db>> {
+        if qualified.path.is_empty() {
+            let locals = self.lctx.iter().filter_map(|b| b.name);
+            let decls = self.namespace.decls(self.db).keys().copied();
+            let member = best_match(self.db, qualified.member, locals.chain(decls))?;
+            return (member != qualified.member).then(|| Qualified::unqualified(member));
+        }
+        self.namespace.similar(self.db, qualified)
     }
 
     pub fn mismatch(

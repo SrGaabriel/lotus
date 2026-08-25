@@ -1,0 +1,50 @@
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:907 ~ tower_lsp[c501]::transport::{impl#1}::serve::{opaque#0}) }, args: [tokio::io::Stdin, tokio::io::Stdout, tower_lsp::ClientSocket, tower_lsp::LspService<Backend>], .. })
+   0: <std::backtrace::Backtrace>::create
+   1: <std::backtrace::Backtrace>::capture
+   2: <rustc_errors::DiagCtxtInner>::emit_diagnostic
+   3: <rustc_errors::DiagCtxtHandle>::emit_diagnostic
+   4: <rustc_span::ErrorGuaranteed as rustc_errors::diagnostic::EmissionGuarantee>::emit_producing_guarantee
+   5: <rustc_errors::DiagCtxtHandle>::delayed_bug::<alloc::string::String>
+   6: rustc_ty_utils::layout::layout_of
+   7: rustc_query_impl::query_vtables::layout_of::invoke_provider_fn::__rust_begin_short_backtrace
+   8: rustc_query_impl::execution::try_execute_query::<rustc_middle::query::caches::DefaultCache<rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::Ty>, rustc_middle::query::erase::ErasedData<[u8; 16]>>, true>
+   9: rustc_query_impl::query_vtables::layout_of::execute_query_incr::__rust_end_short_backtrace
+  10: rustc_ty_utils::layout::layout_of
+  11: rustc_query_impl::query_vtables::layout_of::invoke_provider_fn::__rust_begin_short_backtrace
+  12: rustc_query_impl::execution::try_execute_query::<rustc_middle::query::caches::DefaultCache<rustc_middle::ty::PseudoCanonicalInput<rustc_middle::ty::Ty>, rustc_middle::query::erase::ErasedData<[u8; 16]>>, true>
+  13: rustc_query_impl::query_vtables::layout_of::execute_query_incr::__rust_end_short_backtrace
+  14: <clippy_lints::large_futures::LargeFuture as rustc_lint::passes::LateLintPass>::check_expr
+  15: <clippy_lints::CombinedLateLintPass as rustc_lint::passes::LateLintPass>::check_expr
+  16: <rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass> as rustc_hir::intravisit::Visitor>::visit_expr
+  17: rustc_hir::intravisit::walk_expr::<rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass>>
+  18: <rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass>>::with_lint_attrs::<<rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass> as rustc_hir::intravisit::Visitor>::visit_expr::{closure#0}>
+  19: <rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass> as rustc_hir::intravisit::Visitor>::visit_nested_body
+  20: rustc_hir::intravisit::walk_expr::<rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass>>
+  21: <rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass> as rustc_hir::intravisit::Visitor>::visit_expr
+  22: rustc_hir::intravisit::walk_local::<rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass>>
+  23: <rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass>>::with_lint_attrs::<<rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass> as rustc_hir::intravisit::Visitor>::visit_local::{closure#0}>
+  24: rustc_hir::intravisit::walk_expr::<rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass>>
+  25: <rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass>>::with_lint_attrs::<<rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass> as rustc_hir::intravisit::Visitor>::visit_expr::{closure#0}>
+  26: <rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass> as rustc_hir::intravisit::Visitor>::visit_nested_body
+  27: <rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass>>::with_param_env::<<rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass> as rustc_hir::intravisit::Visitor>::visit_item::{closure#0}::{closure#0}>
+  28: <rustc_lint::late::LateContextAndPass<rustc_lint::late::RuntimeCombinedLateLintPass> as rustc_hir::intravisit::Visitor>::visit_item
+  29: rustc_lint::late::check_crate::{closure#0}
+  30: rustc_lint::late::check_crate
+  31: rustc_interface::passes::analysis::{closure#0}::{closure#0}::{closure#2}
+  32: rustc_data_structures::sync::parallel::par_fns
+  33: rustc_interface::passes::analysis::{closure#0}::{closure#0}
+  34: rustc_data_structures::sync::parallel::par_fns
+  35: rustc_interface::passes::analysis
+  36: rustc_query_impl::execution::try_execute_query::<rustc_middle::query::caches::SingleCache<rustc_middle::query::erase::ErasedData<[u8; 0]>>, true>
+  37: rustc_query_impl::query_vtables::analysis::execute_query_incr::__rust_end_short_backtrace
+  38: rustc_interface::passes::create_and_enter_global_ctxt::<core::option::Option<rustc_interface::queries::Linker>, rustc_driver_impl::run_compiler::{closure#0}::{closure#1}>
+  39: rustc_interface::interface::run_compiler::<(), rustc_driver_impl::run_compiler::{closure#0}>::{closure#2}
+  40: std::sys::backtrace::__rust_begin_short_backtrace::<rustc_interface::util::run_in_thread_with_globals<rustc_interface::util::run_in_thread_pool_with_globals<rustc_interface::interface::run_compiler<(), rustc_driver_impl::run_compiler::{closure#0}>::{closure#2}, ()>::{closure#0}, ()>::{closure#0}::{closure#0}, ()>
+  41: <std::thread::lifecycle::spawn_unchecked<rustc_interface::util::run_in_thread_with_globals<rustc_interface::util::run_in_thread_pool_with_globals<rustc_interface::interface::run_compiler<(), rustc_driver_impl::run_compiler::{closure#0}>::{closure#2}, ()>::{closure#0}, ()>::{closure#0}::{closure#0}, ()>::{closure#1} as core::ops::function::FnOnce<()>>::call_once::{shim:vtable#0}
+  42: <std::sys::thread::unix::Thread>::new::thread_start
+  43: __pthread_cond_wait
+
+
+
+rustc version: 1.100.0-nightly (c656540d6 2026-08-21)
+platform: aarch64-apple-darwin

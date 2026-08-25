@@ -374,6 +374,7 @@ dependencies = [
  "literals",
  "rustc-hash",
  "salsa",
+ "strsim",
  "structure",
  "strum",
  "text-size",

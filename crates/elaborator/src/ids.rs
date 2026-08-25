@@ -28,6 +28,31 @@ impl<'db> Symbol<'db> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Qualified<'db> {
+    pub path: Vec<Symbol<'db>>,
+    pub member: Symbol<'db>,
+}
+
+impl<'db> Qualified<'db> {
+    pub fn unqualified(member: Symbol<'db>) -> Self {
+        Self {
+            path: Vec::new(),
+            member,
+        }
+    }
+
+    pub fn to_string(&self, db: Db<'db>) -> String {
+        let mut txt = String::new();
+        for seg in &self.path {
+            txt.push_str(seg.text(db));
+            txt.push_str("::");
+        }
+        txt.push_str(self.member.text(db));
+        txt
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Update)]
 pub struct Unique(pub u32);
 

@@ -38,6 +38,7 @@ use crate::{
     },
     ids::{
         ItemId,
+        Qualified,
         Symbol,
         Unique,
         UniqueGen,
@@ -99,9 +100,12 @@ impl<'db> ElabCtx<'db> {
     pub fn lower_type(&mut self, ty: ast::Type) -> Term<'db> {
         match ty {
             ast::Type::PiType(pi) => self.lower_pi_type(&pi),
-            ast::Type::Name(name) => match self.try_resolve_name(&name) {
-                Some((term, _term_ty)) => term,
-                None => self.autobind_or_error(&name),
+            ast::Type::Name(name) => match self.parse_qualified(&name) {
+                Some(qualified) => match self.try_resolve_name(&qualified) {
+                    Some((term, _term_ty)) => term,
+                    None => self.autobind_or_error(&qualified, name.syntax().text_range()),
+                },
+                None => self.error_term(),
             },
             ast::Type::AppType(app) => {
                 let func = match app.func() {
@@ -320,56 +324,55 @@ impl<'db> ElabCtx<'db> {
     }
 
     fn resolve_name(&mut self, name: &ast::Name) -> (Term<'db>, Term<'db>) {
-        match self.try_resolve_name(name) {
+        let Some(qualified) = self.parse_qualified(name) else {
+            return self.poison();
+        };
+        match self.try_resolve_name(&qualified) {
             Some(resolved) => resolved,
-            None => self.unresolved_name(name),
+            None => self.unresolved_name(&qualified, name.syntax().text_range()),
         }
     }
 
-    #[instrument(skip(self))]
-    fn try_resolve_name(&mut self, name: &ast::Name) -> Option<(Term<'db>, Term<'db>)> {
-        let path: Vec<Symbol> = name
+    fn parse_qualified(&self, name: &ast::Name) -> Option<Qualified<'db>> {
+        let path = name
             .path()
             .map(|seg| {
-                let text = seg
-                    .identifier()
-                    .and_then(|s| s.text().map(str::to_owned))
-                    .unwrap_or_else(|| "<unknown>".to_owned());
-                Symbol::from_str(self.db, &text)
+                let ident = seg.identifier()?;
+                Some(Symbol::from_str(self.db, ident.text()?))
             })
-            .collect();
-        let member = name.member();
-        let member_txt = member.as_ref().and_then(|m| m.text())?;
-        if member_txt == "Type" && path.is_empty() {
+            .collect::<Option<Vec<_>>>()?;
+        let member = name.member()?;
+        let member = Symbol::from_str(self.db, member.text()?);
+
+        Some(Qualified { path, member })
+    }
+
+    #[instrument(skip(self))]
+    fn try_resolve_name(&mut self, qual: &Qualified<'db>) -> Option<(Term<'db>, Term<'db>)> {
+        let member = qual.member;
+        if member.text(self.db) == "Type" && qual.path.is_empty() {
             let type0 = Term::type0(self.db);
             let type1 = Term::sort(self.db, Level::two(self.db));
             return Some((type0, type1));
         }
 
-        let member = Symbol::from_str(self.db, member_txt);
         if let Some(local) = self.lctx.find_by_name(member) {
             let ty = local.ty;
             let reference = Term::fvar(self.db, local.unique);
             return Some((reference, ty));
         }
 
-        let item = self.namespace.resolve(self.db, &path, member)?;
+        let item = self.namespace.resolve(self.db, &qual.path, member)?;
         let item_ty = self.db.signature(item).ty;
         let item_term = Term::constant(self.db, item);
         Some((item_term, item_ty))
     }
 
-    fn autobind_or_error(&mut self, name: &ast::Name) -> Term<'db> {
-        let is_qualified = name.path().next().is_some();
-        let member = name.member();
-        if let Some(member_txt) = member.as_ref().and_then(|m| m.text())
-            && !is_qualified
-            && is_autobindable(member_txt)
-        {
-            let symbol = Symbol::from_str(self.db, member_txt);
-            self.fresh_autobound(symbol, name.syntax().text_range())
+    fn autobind_or_error(&mut self, qual: &Qualified<'db>, range: TextRange) -> Term<'db> {
+        if qual.path.is_empty() && is_autobindable(qual.member.into_str(self.db)) {
+            self.fresh_autobound(qual.member, range)
         } else {
-            self.unresolved_name(name).0
+            self.unresolved_name(qual, range).0
         }
     }
 
