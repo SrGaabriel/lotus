@@ -538,13 +538,13 @@ Kripke's insight was to give a semantics in terms of possible worlds that evolve
 
 *Possible worlds.* A Kripke model for intuitionistic logic consists of:
 
-1. A set $W$ of worlds (states of knowledge, moments in time, stages of investigation).
+1. A set $W$ of worlds (can be thought of as states of knowledge or moments in time).
 2. A relation $lt.eq$ on $W$, where $w lt.eq w'$ means "world $w'$ is reachable from $w$" or "what's true at $w$ is still true at $w'$".
 3. For each world $w$, a set of atomic propositions that hold at $w$.
 
 The relation $lt.eq$ captures the intuition that knowledge accumulates, as we can only learn new facts and never forget old ones. A proposition that holds at a world $w$ must also hold at all future worlds $w' gt.eq w$.
 
-*The forcing relation.* Forcing is what that tells us whether a proposition holds at a world. We write $w tack.r.double A$ and read it "world $w$ forces $A$" or "$A$ holds at $w$". For atomic $A$, forcing is given by the model and for complex propositions, we define it recursively:
+*The forcing relation.* We write $w tack.r.double A$ and read it "world $w$ forces $A$" or "$A$ holds at $w$". For atomic $A$, forcing is given by the model and for complex propositions, we define it recursively:
 
 - $w tack.r.double A and B$ iff $w tack.r.double A$ and $w tack.r.double B$.
 - $w tack.r.double A or B$ iff $w tack.r.double A$ or $w tack.r.double B$.
@@ -556,13 +556,21 @@ This is what gives implication the right constructive content, since to know $A 
 *Law of Excluded Middle.* We can use this as another demonstration of why $A or not A$ is not true in intuitionistic logic. Consider a model with two worlds, $w_0 lt.eq w_1$ where a proposition $P$ doesn't hold at $w_0$ but does hold at $w_1$:
 
 - At $w_0$: $P$ doesn't hold, so $w_0$ does not force $P$.
-- At $w_0$: is $not P$ forced? That requires that for every future world $w' gt.eq w_0$, $w'$ doesn't force $P$. But $w_1$ does force $P$, so no, $not P$ is not forced at $w_0$ either.
+- At $w_0$: is $not P$ forced? That requires that for every future world $w' gt.eq w_0$, $w'$ doesn't force $P$, but $w_1$ does force $P$, so no, $not P$ is not forced at $w_0$ either.
 - Therefore $w_0$ does not force $P or not P$.
 
 $P or not P$ fails at a world that hasn't yet decided whether $P$ holds. Intuitionism can be thought of as a logic of evolving knowledge and LEM fails because there are times we need to be humble and say "I don't know yet"!
 
-A classical model is just a Kripke model with one world, so classical logic is intuitionistic logic at a single moment!
+Therefore, a classical model is just a Kripke model with one world, so classical logic is intuitionistic logic at a single moment!
 
 We will come back to Kripke semantics in the chapter on modal logic.
+
+#heading(level: 2)[
+  Category theory
+]
+
+Formally, category theory is the study of abstract structures and relationships between them. It is meant to be used as a lens for any mathematical structure and their arbitrary relationships amongst each other.
+
+A category consists of a collection of objects and of morphisms (arrows) between those objects. So for example, the category of topological spaces has topological spaces as objects and continuous functions as morphisms.
 
 #bibliography("works.bib", style: "nature")
